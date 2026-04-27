@@ -3,209 +3,187 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nuclear Commander - Multi-Nuke Edition</title>
+    <title>Nuclear Commander v4.0 - Tactical Interface</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --red: #ff3333; --orange: #ff9900; --yellow: #ffff00; --bg: #0f0f11; }
-        body { margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace; background: var(--bg); color: #00ff00; overflow: hidden; }
+        :root { --green: #00ff41; --red: #ff3333; --bg: #0a0a0c; --ui-bg: rgba(16, 16, 20, 0.95); }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Monaco, monospace; background: var(--bg); color: var(--green); overflow: hidden; }
         #map { height: 100vh; width: 100vw; background: #000; }
 
-        /* Tactical UI */
+        /* Panel UI */
         #ui {
             position: absolute; top: 10px; left: 10px; z-index: 1000;
-            background: rgba(15, 15, 17, 0.95); border: 2px solid #333;
-            padding: 15px; border-radius: 4px; width: 280px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            background: var(--ui-bg); border: 1px solid #333;
+            padding: 15px; border-radius: 8px; width: 300px;
+            box-shadow: 0 0 25px rgba(0,0,0,0.9);
         }
-        h2 { margin: 0 0 10px; font-size: 1rem; color: var(--red); text-align: center; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        h2 { margin: 0 0 15px; font-size: 1rem; color: var(--red); text-align: center; letter-spacing: 2px; border-bottom: 1px solid #333; padding-bottom: 8px; }
         
-        .section { margin-bottom: 15px; }
-        label { font-size: 0.75rem; color: #888; display: block; margin-bottom: 5px; }
-        
+        .label { font-size: 0.7rem; color: #888; text-transform: uppercase; margin-bottom: 5px; display: block; }
         select, input, button {
-            width: 100%; background: #1a1a1a; border: 1px solid #444; color: #00ff00;
-            padding: 8px; margin-bottom: 5px; border-radius: 2px; box-sizing: border-box;
+            width: 100%; background: #1a1a1a; border: 1px solid #444; color: var(--green);
+            padding: 10px; margin-bottom: 8px; border-radius: 4px; box-sizing: border-box; font-size: 0.9rem;
         }
 
-        .wind-control { display: flex; align-items: center; gap: 10px; }
-        #wind-compass { font-weight: bold; color: var(--yellow); min-width: 40px; text-align: center; }
+        /* Róża Wiatrów */
+        .compass-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 15px;
+        }
+        .compass-btn {
+            padding: 8px 0; font-size: 0.7rem; background: #222; border: 1px solid #444; 
+            color: #888; cursor: pointer; transition: 0.2s;
+        }
+        .compass-btn.active { background: var(--green); color: black; border-color: var(--green); font-weight: bold; }
+        .compass-btn:hover:not(.active) { border-color: var(--green); color: var(--green); }
 
-        button { background: #333; cursor: pointer; transition: 0.2s; font-weight: bold; border-color: #555; }
-        button:hover { background: #444; border-color: var(--red); }
-        .btn-clear { color: #ff5555; border-color: #552222; margin-top: 10px; }
+        .btn-action { background: #333; border: none; color: white; cursor: pointer; font-weight: bold; }
+        .btn-clear { background: #422; color: #ff5555; margin-top: 10px; }
+        .btn-clear:hover { background: #622; }
 
-        .stats-box { 
-            font-size: 0.7rem; background: #000; padding: 8px; border: 1px solid #222; 
-            max-height: 150px; overflow-y: auto; color: #00cc00;
+        #log { 
+            font-size: 0.7rem; background: rgba(0,0,0,0.5); padding: 8px; 
+            border: 1px solid #222; max-height: 100px; overflow-y: auto; margin-top: 10px;
         }
 
-        /* Tooltip style */
-        .leaflet-popup-content { background: #111; color: #fff; font-family: monospace; }
+        .leaflet-popup-content-wrapper { background: #111; color: var(--green); border: 1px solid var(--green); }
+        .leaflet-popup-tip { background: var(--green); }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <h2>NUCLEAR COMMANDER v3.0</h2>
+    <h2>STRATEGIC CONTROL</h2>
     
-    <div class="section">
-        <label>WYBÓR GŁOWICY:</label>
-        <select id="bomb-preset" onchange="updateYieldFromPreset()">
-            <option value="15">Little Boy (15 kt)</option>
-            <option value="350">W78 Minuteman (350 kt)</option>
-            <option value="50000">Tsar Bomba (50 Mt)</option>
-            <option value="custom">WŁASNA MOC --></option>
-        </select>
-        <input type="number" id="custom-yield" placeholder="Moc w kilotonach (kt)" value="15">
+    <span class="label">Arsenał:</span>
+    <select id="bomb-preset" onchange="syncPreset()">
+        <option value="0.02">Davy Crockett (0.02 kt)</option>
+        <option value="15" selected>Little Boy (15 kt)</option>
+        <option value="21">Fat Man (21 kt)</option>
+        <option value="1200">B83 Nuclear Bomb (1.2 Mt)</option>
+        <option value="15000">Castle Bravo (15 Mt)</option>
+        <option value="50000">Car Bomba (50 Mt)</option>
+        <option value="custom">-- WŁASNA MOC --</option>
+    </select>
+    <input type="number" id="custom-yield" value="15" placeholder="Wpisz moc w kt">
+
+    <span class="label">Kierunek wiatru (róża):</span>
+    <div class="compass-grid">
+        <button class="compass-btn" onclick="setWind(315, this)">NW</button>
+        <button class="compass-btn" onclick="setWind(0, this)">N</button>
+        <button class="compass-btn" onclick="setWind(45, this)">NE</button>
+        <button class="compass-btn" onclick="setWind(270, this)">W</button>
+        <div style="background:none; border:none;"></div>
+        <button class="compass-btn active" onclick="setWind(90, this)">E</button>
+        <button class="compass-btn" onclick="setWind(225, this)">SW</button>
+        <button class="compass-btn" onclick="setWind(180, this)">S</button>
+        <button class="compass-btn" onclick="setWind(135, this)">SE</button>
     </div>
 
-    <div class="section">
-        <label>KIERUNEK WIATRU (DOKĄD WIEJE):</label>
-        <div class="wind-control">
-            <input type="range" id="wind-dir" min="0" max="360" value="90">
-            <span id="wind-compass">W</span>
-        </div>
-    </div>
+    <div id="log">SYSTEM READY. WAITING FOR TARGET.</div>
 
-    <div class="stats-box" id="log">CELOWNIK GOTOWY. KLIKNIJ NA MAPIE.</div>
-
-    <button class="btn-clear" onclick="clearAll()">WYCZYŚĆ WSZYSTKIE ŚLADY</button>
+    <button class="btn-clear" onclick="clearMap()">RESETUJ MAPĘ</button>
 </div>
 
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // Inicjalizacja Mapy
-    const map = L.map('map', { zoomControl: false }).setView([52.23, 21.01], 6);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; CartoDB'
-    }).addTo(map);
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([52.23, 21.01], 6);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-    let activeObjects = [];
-    const windInput = document.getElementById('wind-dir');
-    const windCompass = document.getElementById('wind-compass');
-    const logBox = document.getElementById('log');
+    let activeLayers = [];
+    let currentWind = 90;
 
-    // Róża wiatrów - etykiety
-    const getWindLabel = (deg) => {
-        const labels = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-        return labels[Math.round(deg / 45) % 8];
-    };
-
-    windInput.oninput = () => {
-        windCompass.innerText = getWindLabel(windInput.value);
-    };
-
-    function updateYieldFromPreset() {
-        const preset = document.getElementById('bomb-preset').value;
-        if(preset !== 'custom') {
-            document.getElementById('custom-yield').value = preset;
-        }
+    function syncPreset() {
+        const val = document.getElementById('bomb-preset').value;
+        if(val !== "custom") document.getElementById('custom-yield').value = val;
     }
 
-    function playExplosionSound() {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const bufferSize = audioCtx.sampleRate * 1.5;
-        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
-        
-        const noise = audioCtx.createBufferSource();
-        noise.buffer = buffer;
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(500, audioCtx.currentTime);
-        filter.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 1.5);
-        
-        const gain = audioCtx.createGain();
-        gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
+    function setWind(deg, btn) {
+        currentWind = deg;
+        document.querySelectorAll('.compass-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
 
-        noise.connect(filter);
-        filter.connect(gain);
-        gain.connect(audioCtx.destination);
-        noise.start();
+    function playSound() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const g = ctx.createGain();
+            osc.type = 'brownnoise'; // emulowane
+            osc.connect(g); g.connect(ctx.destination);
+            osc.start(); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 2);
+            osc.stop(ctx.currentTime + 2);
+        } catch(e) {}
     }
 
     map.on('click', function(e) {
-        const yieldKt = parseFloat(document.getElementById('custom-yield').value) || 1;
-        const latlng = e.latlng;
-        const windDeg = parseFloat(windInput.value);
+        const kt = parseFloat(document.getElementById('custom-yield').value) || 1;
+        const pos = e.latlng;
+        
+        // Model fizyczny (skalowanie promieni)
+        const sB = Math.pow(kt, 1/3); // Blast scale
+        const sT = Math.pow(kt, 0.43); // Thermal scale (rośnie szybciej)
 
-        // PRAWA SKALOWANIA (NUKEMAP Logic)
-        // Blast scale: Y^(1/3), Thermal scale: Y^(1/2)
-        const scaleBlast = Math.pow(yieldKt, 1/3);
-        const scaleThermal = Math.pow(yieldKt, 0.49); // Uproszczone skalowanie cieplne
+        // Definicje stref (metry)
+        let rawZones = [
+            { r: sB * 3300, col: '#555555', label: '1 PSI: Podmuch odczuwalny, pękające szyby', op: 0.1 },
+            { r: sT * 1200, col: '#ffaa00', label: 'Ciepło: Oparzenia 3 stopnia (poważne)', op: 0.3 },
+            { r: sB * 1100, col: '#ff4400', label: '5 PSI: Domy mieszkalne zniszczone', op: 0.35 },
+            { r: sB * 450,  col: '#ff0000', label: '20 PSI: Totalna destrukcja betonu', op: 0.4 },
+            { r: sB * 150,  col: '#ffff00', label: 'Kula ognia: Parowanie materii', op: 0.7 }
+        ];
 
-        const zones = {
-            fireball: scaleBlast * 180,    // Kula ognia
-            heavy: scaleBlast * 450,       // 20 PSI - Beton paruje
-            moderate: scaleBlast * 1600,   // 5 PSI - Domy zburzone
-            light: scaleBlast * 4800,      // 1 PSI - Szyby pękają
-            thermal: scaleThermal * 2000   // 3 stopień oparzeń
-        };
+        // KLUCZOWE: Sortowanie od największego do najmniejszego promienia
+        // Dzięki temu opisy i klikalność na mapie zawsze działają poprawnie.
+        rawZones.sort((a, b) => b.r - a.r);
 
-        // Shake map
-        document.getElementById('map').classList.add('shake');
-        setTimeout(() => document.getElementById('map').classList.remove('shake'), 500);
-        playExplosionSound();
+        // Efekt wstrząsu
+        document.getElementById('map').style.filter = 'invert(1)';
+        setTimeout(() => document.getElementById('map').style.filter = 'none', 100);
+        playSound();
 
-        // Rysowanie Falloutu
-        const angleRad = (windDeg - 90) * (Math.PI / 180);
-        const falloutLen = scaleBlast * 8000;
-        const endLat = latlng.lat - (falloutLen / 111320) * Math.sin(angleRad);
-        const endLng = latlng.lng + (falloutLen / (111320 * Math.cos(latlng.lat * Math.PI/180))) * Math.cos(angleRad);
+        // Rysowanie stref
+        rawZones.forEach(z => {
+            const c = L.circle(pos, {
+                radius: 0, color: z.col, fillColor: z.col, fillOpacity: z.op, weight: 1
+            }).addTo(map).bindPopup(`<b>${z.label}</b><br>Zasięg: ${(z.r/1000).toFixed(2)} km`);
+            
+            setTimeout(() => c.setRadius(z.r), 50);
+            activeLayers.push(c);
+        });
+
+        // Fallout (Opad)
+        const rad = (currentWind - 90) * (Math.PI / 180);
+        const fLen = sB * 10000;
+        const fEnd = [
+            pos.lat - (fLen / 111000) * Math.sin(rad),
+            pos.lng + (fLen / (111000 * Math.cos(pos.lat * Math.PI/180))) * Math.cos(rad)
+        ];
         
         const fallout = L.polygon([
-            latlng,
-            [latlng.lat + (zones.light/111000), latlng.lng], // Szerokość u nasady
-            [endLat, endLng],
-            [latlng.lat - (zones.light/111000), latlng.lng]
-        ], {color: '#6b8e23', fillOpacity: 0.2, weight: 1}).addTo(map);
+            pos,
+            [pos.lat + (rawZones[0].r/111000), pos.lng],
+            fEnd,
+            [pos.lat - (rawZones[0].r/111000), pos.lng]
+        ], { color: '#6b8e23', fillOpacity: 0.15, weight: 1, dashArray: '5,5' }).addTo(map)
+        .bindPopup("Strefa opadu radioaktywnego (zależna od wiatru)");
+        
+        activeLayers.push(fallout);
 
-        // Funkcja pomocnicza do okręgów
-        const drawCircle = (radius, color, label) => {
-            const c = L.circle(latlng, {
-                radius: 0, color: color, fillColor: color, fillOpacity: 0.25, weight: 1
-            }).addTo(map).bindTooltip(label);
-            setTimeout(() => c.setRadius(radius), 50);
-            activeObjects.push(c);
-            return c;
-        };
+        // Marker uderzenia
+        const m = L.circleMarker(pos, { radius: 3, color: 'white' }).addTo(map);
+        activeLayers.push(m);
 
-        drawCircle(zones.light, '#555', '1 PSI: Szyby pękają, podmuch odczuwalny');
-        drawCircle(zones.thermal, '#ff9900', 'Ciepło: Oparzenia 3 stopnia');
-        drawCircle(zones.moderate, '#ff4400', '5 PSI: Budynki mieszkalne zburzone');
-        drawCircle(zones.heavy, '#ff0000', '20 PSI: Totalna destrukcja betonu');
-        drawCircle(zones.fireball, '#ffff00', 'Kula ognia: Parowanie materii');
-
-        activeObjects.push(fallout);
-
-        // Log
-        const entry = document.createElement('div');
-        entry.innerHTML = `> Detonacja ${yieldKt}kt w [${latlng.lat.toFixed(2)}, ${latlng.lng.toFixed(2)}]`;
-        logBox.prepend(entry);
+        const log = document.getElementById('log');
+        log.innerHTML = `> UDERZENIE: ${kt}kt<br>> KOORD: ${pos.lat.toFixed(2)}, ${pos.lng.toFixed(2)}<br>` + log.innerHTML;
     });
 
-    function clearAll() {
-        activeObjects.forEach(obj => map.removeLayer(obj));
-        activeObjects = [];
-        logBox.innerHTML = "MAPA WYCZYSZCZONA.";
+    function clearMap() {
+        activeLayers.forEach(l => map.removeLayer(l));
+        activeLayers = [];
+        document.getElementById('log').innerHTML = "MAPA WYCZYSZCZONA.";
     }
 </script>
-
-<style>
-    /* Dynamiczne trzęsienie mapy */
-    .shake { animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both; }
-    @keyframes shake {
-        10%, 90% { transform: translate3d(-2px, 0, 0); }
-        20%, 80% { transform: translate3d(4px, 0, 0); }
-        30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
-        40%, 60% { transform: translate3d(6px, 0, 0); }
-    }
-    .leaflet-tooltip { background: #000; color: #fff; border: 1px solid #f00; font-size: 10px; }
-</style>
-
 </body>
 </html>

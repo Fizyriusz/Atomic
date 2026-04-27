@@ -3,172 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nuclear Simulator PRO</title>
+    <title>Nuclear Commander - Multi-Nuke Edition</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --accent: #ff4d4d; --bg: #1a1a1a; }
-        body { margin: 0; padding: 0; font-family: sans-serif; background: var(--bg); overflow: hidden; }
-        #map { height: 100vh; width: 100vw; transition: filter 0.1s; }
+        :root { --red: #ff3333; --orange: #ff9900; --yellow: #ffff00; --bg: #0f0f11; }
+        body { margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace; background: var(--bg); color: #00ff00; overflow: hidden; }
+        #map { height: 100vh; width: 100vw; background: #000; }
 
-        /* UI Panel */
+        /* Tactical UI */
         #ui {
             position: absolute; top: 10px; left: 10px; z-index: 1000;
-            background: rgba(20, 20, 20, 0.9); color: white;
-            padding: 15px; border-radius: 10px; width: 260px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid #333;
+            background: rgba(15, 15, 17, 0.95); border: 2px solid #333;
+            padding: 15px; border-radius: 4px; width: 280px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
         }
-        h2 { margin: 0 0 10px; color: var(--accent); font-size: 1.1rem; text-transform: uppercase; }
-        label { font-size: 0.8rem; display: block; margin-top: 10px; color: #aaa; }
-        select, input, button {
-            width: 100%; padding: 8px; margin: 5px 0;
-            background: #333; border: 1px solid #444; color: white; border-radius: 4px;
-        }
-        button { background: var(--accent); font-weight: bold; cursor: pointer; border: none; margin-top: 15px; }
-        button:hover { filter: brightness(1.2); }
-
-        /* Shake Animation */
-        .shake { animation: shake-kb 0.4s cubic-bezier(.36,.07,.19,.97) both; }
-        @keyframes shake-kb {
-            10%, 90% { transform: translate3d(-4px, 0, 0); }
-            20%, 80% { transform: translate3d(8px, 0, 0); }
-            30%, 50%, 70% { transform: translate3d(-10px, 0, 0); }
-            40%, 60% { transform: translate3d(10px, 0, 0); }
-        }
-
-        /* Leaflet Transition Fix */
-        .leaflet-interactive { transition: r 0.8s cubic-bezier(0, 0.5, 0.5, 1), stroke-width 0.8s; }
+        h2 { margin: 0 0 10px; font-size: 1rem; color: var(--red); text-align: center; border-bottom: 1px solid #333; padding-bottom: 5px; }
         
-        .stats { font-size: 0.85rem; border-top: 1px solid #333; margin-top: 10px; padding-top: 10px; }
-        .legend-item { display: flex; align-items: center; font-size: 0.75rem; margin: 3px 0; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+        .section { margin-bottom: 15px; }
+        label { font-size: 0.75rem; color: #888; display: block; margin-bottom: 5px; }
+        
+        select, input, button {
+            width: 100%; background: #1a1a1a; border: 1px solid #444; color: #00ff00;
+            padding: 8px; margin-bottom: 5px; border-radius: 2px; box-sizing: border-box;
+        }
+
+        .wind-control { display: flex; align-items: center; gap: 10px; }
+        #wind-compass { font-weight: bold; color: var(--yellow); min-width: 40px; text-align: center; }
+
+        button { background: #333; cursor: pointer; transition: 0.2s; font-weight: bold; border-color: #555; }
+        button:hover { background: #444; border-color: var(--red); }
+        .btn-clear { color: #ff5555; border-color: #552222; margin-top: 10px; }
+
+        .stats-box { 
+            font-size: 0.7rem; background: #000; padding: 8px; border: 1px solid #222; 
+            max-height: 150px; overflow-y: auto; color: #00cc00;
+        }
+
+        /* Tooltip style */
+        .leaflet-popup-content { background: #111; color: #fff; font-family: monospace; }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <h2>Nuke Simulator Pro</h2>
+    <h2>NUCLEAR COMMANDER v3.0</h2>
     
-    <label>Wybierz głowicę:</label>
-    <select id="bomb-select">
-        <option value="15">Little Boy (15 kt)</option>
-        <option value="350">Minuteman III (350 kt)</option>
-        <option value="50000">Car Bomba (50 Mt)</option>
-        <option value="100000">Antimatter (100 Mt)</option>
-    </select>
-
-    <label>Kierunek wiatru (fallout): <span id="wind-val">45</span>°</label>
-    <input type="range" id="wind-dir" min="0" max="360" value="45">
-
-    <button id="clear">Wyczyść mapę</button>
-
-    <div class="stats" id="stats-box">Kliknij na mapę, by zdetonować.</div>
-
-    <div class="legend">
-        <div class="legend-item"><div class="dot" style="background:#ffff00"></div> Kula ognia</div>
-        <div class="legend-item"><div class="dot" style="background:#ff0000"></div> Fala uderzeniowa</div>
-        <div class="legend-item"><div class="dot" style="background:#6b8e23"></div> Opad (Fallout)</div>
+    <div class="section">
+        <label>WYBÓR GŁOWICY:</label>
+        <select id="bomb-preset" onchange="updateYieldFromPreset()">
+            <option value="15">Little Boy (15 kt)</option>
+            <option value="350">W78 Minuteman (350 kt)</option>
+            <option value="50000">Tsar Bomba (50 Mt)</option>
+            <option value="custom">WŁASNA MOC --></option>
+        </select>
+        <input type="number" id="custom-yield" placeholder="Moc w kilotonach (kt)" value="15">
     </div>
+
+    <div class="section">
+        <label>KIERUNEK WIATRU (DOKĄD WIEJE):</label>
+        <div class="wind-control">
+            <input type="range" id="wind-dir" min="0" max="360" value="90">
+            <span id="wind-compass">W</span>
+        </div>
+    </div>
+
+    <div class="stats-box" id="log">CELOWNIK GOTOWY. KLIKNIJ NA MAPIE.</div>
+
+    <button class="btn-clear" onclick="clearAll()">WYCZYŚĆ WSZYSTKIE ŚLADY</button>
 </div>
 
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+    // Inicjalizacja Mapy
     const map = L.map('map', { zoomControl: false }).setView([52.23, 21.01], 6);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; CARTO'
+        attribution: '&copy; CartoDB'
     }).addTo(map);
 
-    let activeLayers = [];
+    let activeObjects = [];
     const windInput = document.getElementById('wind-dir');
-    const windVal = document.getElementById('wind-val');
+    const windCompass = document.getElementById('wind-compass');
+    const logBox = document.getElementById('log');
 
-    windInput.oninput = () => { windVal.innerText = windInput.value; };
+    // Róża wiatrów - etykiety
+    const getWindLabel = (deg) => {
+        const labels = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+        return labels[Math.round(deg / 45) % 8];
+    };
 
-    // Funkcja dźwięku (Web Audio API)
-    function playBoom() {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1);
-        osc.stop(ctx.currentTime + 1);
+    windInput.oninput = () => {
+        windCompass.innerText = getWindLabel(windInput.value);
+    };
+
+    function updateYieldFromPreset() {
+        const preset = document.getElementById('bomb-preset').value;
+        if(preset !== 'custom') {
+            document.getElementById('custom-yield').value = preset;
+        }
+    }
+
+    function playExplosionSound() {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const bufferSize = audioCtx.sampleRate * 1.5;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
+        
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(500, audioCtx.currentTime);
+        filter.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 1.5);
+        
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        noise.start();
     }
 
     map.on('click', function(e) {
-        // Czyścimy poprzednie
-        activeLayers.forEach(l => map.removeLayer(l));
-        activeLayers = [];
-
-        const yieldKt = parseFloat(document.getElementById('bomb-select').value);
+        const yieldKt = parseFloat(document.getElementById('custom-yield').value) || 1;
         const latlng = e.latlng;
         const windDeg = parseFloat(windInput.value);
 
-        // Skalowanie promieni (uproszczony model fizyczny R ~ Y^(1/3))
-        const baseRadius = Math.pow(yieldKt, 1/3);
-        const rFireball = baseRadius * 150;
-        const rShock = baseRadius * 800;
-        const rFallout = baseRadius * 4000;
+        // PRAWA SKALOWANIA (NUKEMAP Logic)
+        // Blast scale: Y^(1/3), Thermal scale: Y^(1/2)
+        const scaleBlast = Math.pow(yieldKt, 1/3);
+        const scaleThermal = Math.pow(yieldKt, 0.49); // Uproszczone skalowanie cieplne
 
-        // 1. Shake Effect
-        const mapEl = document.getElementById('map');
-        mapEl.classList.remove('shake');
-        void mapEl.offsetWidth; 
-        mapEl.classList.add('shake');
-        playBoom();
+        const zones = {
+            fireball: scaleBlast * 180,    // Kula ognia
+            heavy: scaleBlast * 450,       // 20 PSI - Beton paruje
+            moderate: scaleBlast * 1600,   // 5 PSI - Domy zburzone
+            light: scaleBlast * 4800,      // 1 PSI - Szyby pękają
+            thermal: scaleThermal * 2000   // 3 stopień oparzeń
+        };
 
-        // 2. Rysowanie Falloutu (Wielokąt zależny od wiatru)
+        // Shake map
+        document.getElementById('map').classList.add('shake');
+        setTimeout(() => document.getElementById('map').classList.remove('shake'), 500);
+        playExplosionSound();
+
+        // Rysowanie Falloutu
         const angleRad = (windDeg - 90) * (Math.PI / 180);
-        const driftLat = (rFallout / 111320) * Math.sin(angleRad);
-        const driftLng = (rFallout / (111320 * Math.cos(latlng.lat * Math.PI/180))) * Math.cos(angleRad);
+        const falloutLen = scaleBlast * 8000;
+        const endLat = latlng.lat - (falloutLen / 111320) * Math.sin(angleRad);
+        const endLng = latlng.lng + (falloutLen / (111320 * Math.cos(latlng.lat * Math.PI/180))) * Math.cos(angleRad);
         
-        const falloutPoint = [latlng.lat - driftLat, latlng.lng + driftLng];
-        const falloutPattern = L.polygon([
+        const fallout = L.polygon([
             latlng,
-            [latlng.lat - driftLat * 0.8 + driftLng * 0.2, latlng.lng + driftLng * 0.8 + driftLat * 0.2],
-            falloutPoint,
-            [latlng.lat - driftLat * 0.8 - driftLng * 0.2, latlng.lng + driftLng * 0.8 - driftLat * 0.2]
-        ], { color: '#6b8e23', fillOpacity: 0.3, weight: 1 }).addTo(map);
+            [latlng.lat + (zones.light/111000), latlng.lng], // Szerokość u nasady
+            [endLat, endLng],
+            [latlng.lat - (zones.light/111000), latlng.lng]
+        ], {color: '#6b8e23', fillOpacity: 0.2, weight: 1}).addTo(map);
 
-        // 3. Rysowanie Okręgów z animacją
-        const circles = [
-            { r: rShock, col: '#ff0000', op: 0.3 },
-            { r: rFireball, col: '#ffff00', op: 0.6 }
-        ];
+        // Funkcja pomocnicza do okręgów
+        const drawCircle = (radius, color, label) => {
+            const c = L.circle(latlng, {
+                radius: 0, color: color, fillColor: color, fillOpacity: 0.25, weight: 1
+            }).addTo(map).bindTooltip(label);
+            setTimeout(() => c.setRadius(radius), 50);
+            activeObjects.push(c);
+            return c;
+        };
 
-        circles.forEach(c => {
-            const circle = L.circle(latlng, {
-                radius: 0, 
-                color: c.col, 
-                fillColor: c.col, 
-                fillOpacity: c.op,
-                weight: 2
-            }).addTo(map);
-            
-            setTimeout(() => circle.setRadius(c.r), 10);
-            activeLayers.push(circle);
-        });
+        drawCircle(zones.light, '#555', '1 PSI: Szyby pękają, podmuch odczuwalny');
+        drawCircle(zones.thermal, '#ff9900', 'Ciepło: Oparzenia 3 stopnia');
+        drawCircle(zones.moderate, '#ff4400', '5 PSI: Budynki mieszkalne zburzone');
+        drawCircle(zones.heavy, '#ff0000', '20 PSI: Totalna destrukcja betonu');
+        drawCircle(zones.fireball, '#ffff00', 'Kula ognia: Parowanie materii');
 
-        activeLayers.push(falloutPattern);
+        activeObjects.push(fallout);
 
-        // 4. Statystyki
-        const casualties = Math.floor(baseRadius * Math.random() * 500000);
-        document.getElementById('stats-box').innerHTML = `
-            <b>DETONACJA ZAKOŃCZONA</b><br>
-            Moc: ${yieldKt} KT<br>
-            Fala uderzeniowa: ${(rShock/1000).toFixed(2)} km<br>
-            <span style="color:var(--accent)">Szacowane ofiary: ${casualties.toLocaleString()}</span>
-        `;
+        // Log
+        const entry = document.createElement('div');
+        entry.innerHTML = `> Detonacja ${yieldKt}kt w [${latlng.lat.toFixed(2)}, ${latlng.lng.toFixed(2)}]`;
+        logBox.prepend(entry);
     });
 
-    document.getElementById('clear').onclick = () => {
-        activeLayers.forEach(l => map.removeLayer(l));
-        document.getElementById('stats-box').innerText = "Mapa wyczyszczona.";
-    };
+    function clearAll() {
+        activeObjects.forEach(obj => map.removeLayer(obj));
+        activeObjects = [];
+        logBox.innerHTML = "MAPA WYCZYSZCZONA.";
+    }
 </script>
+
+<style>
+    /* Dynamiczne trzęsienie mapy */
+    .shake { animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+    @keyframes shake {
+        10%, 90% { transform: translate3d(-2px, 0, 0); }
+        20%, 80% { transform: translate3d(4px, 0, 0); }
+        30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+        40%, 60% { transform: translate3d(6px, 0, 0); }
+    }
+    .leaflet-tooltip { background: #000; color: #fff; border: 1px solid #f00; font-size: 10px; }
+</style>
 
 </body>
 </html>

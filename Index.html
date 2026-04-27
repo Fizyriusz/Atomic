@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuclear Map Simulator</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #map { height: 100vh; width: 100vw; background: #222; }
+
+        /* Panel boczny */
+        #ui-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(30, 30, 30, 0.9);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            max-width: 300px;
+        }
+
+        h2 { margin-top: 0; color: #ff4d4d; font-size: 1.2rem; }
+        select, button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .legend {
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+        .legend i { width: 12px; height: 12px; display: inline-block; margin-right: 5px; border-radius: 50%; }
+        
+        /* Kolory stref */
+        .color-fireball { background: #ffff00; }
+        .color-pressure { background: #ff0000; }
+        .color-radiation { background: #00ff00; }
+        .color-thermal { background: #ff9900; }
+    </style>
+</head>
+<body>
+
+<div id="ui-panel">
+    <h2>Symulator Wybuchu</h2>
+    <p>Wybierz bombę i kliknij w dowolne miejsce na mapie.</p>
+    
+    <label for="bomb-select">Typ bomby:</label>
+    <select id="bomb-select">
+        <option value="davy">Davy Crockett (0.02 kt)</option>
+        <option value="littleboy">Little Boy (15 kt)</option>
+        <option value="fatman">Fat Man (21 kt)</option>
+        <option value="minuteman">Minuteman III (350 kt)</option>
+        <option value="tsar">Car Bomba (50 Mt)</option>
+    </select>
+
+    <button id="clear-map">Wyczyść mapę</button>
+
+    <div class="legend">
+        <p><i class="color-fireball"></i> Kula ognia</p>
+        <p><i class="color-pressure"></i> Fala uderzeniowa (ciężka)</p>
+        <p><i class="color-radiation"></i> Promieniowanie jonizujące</p>
+        <p><i class="color-thermal"></i> Promieniowanie cieplne (oparzenia)</p>
+    </div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+    // Inicjalizacja mapy (styl ciemny CartoDB)
+    const map = L.map('map').setView([52.2297, 21.0122], 6);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO'
+    }).addTo(map);
+
+    // Dane bomb (promienie w metrach)
+    const bombData = {
+        davy: { fireball: 20, pressure: 100, radiation: 300, thermal: 200 },
+        littleboy: { fireball: 180, pressure: 1200, radiation: 1500, thermal: 1900 },
+        fatman: { fireball: 200, pressure: 1500, radiation: 1700, thermal: 2200 },
+        minuteman: { fireball: 600, pressure: 4500, radiation: 2000, thermal: 8000 },
+        tsar: { fireball: 4600, pressure: 32000, radiation: 5000, thermal: 60000 }
+    };
+
+    let activeLayers = [];
+
+    function clearLayers() {
+        activeLayers.forEach(layer => map.removeLayer(layer));
+        activeLayers = [];
+    }
+
+    map.on('click', function(e) {
+        clearLayers();
+
+        const bombType = document.getElementById('bomb-select').value;
+        const data = bombData[bombType];
+        const latlng = e.latlng;
+
+        // Tworzenie stref (od największej do najmniejszej, by były klikalne)
+        
+        // 1. Termiczna (oparzenia)
+        const thermal = L.circle(latlng, {
+            radius: data.thermal,
+            color: '#ff9900',
+            fillColor: '#ff9900',
+            fillOpacity: 0.2,
+            weight: 1
+        }).addTo(map);
+
+        // 2. Fala uderzeniowa
+        const pressure = L.circle(latlng, {
+            radius: data.pressure,
+            color: '#ff0000',
+            fillColor: '#ff0000',
+            fillOpacity: 0.3,
+            weight: 1
+        }).addTo(map);
+
+        // 3. Promieniowanie
+        const radiation = L.circle(latlng, {
+            radius: data.radiation,
+            color: '#00ff00',
+            fillColor: '#00ff00',
+            fillOpacity: 0.2,
+            weight: 1
+        }).addTo(map);
+
+        // 4. Kula ognia
+        const fireball = L.circle(latlng, {
+            radius: data.fireball,
+            color: '#ffff00',
+            fillColor: '#ffff00',
+            fillOpacity: 0.6,
+            weight: 1
+        }).addTo(map);
+
+        // Dodanie markeru w miejscu uderzenia
+        const marker = L.marker(latlng).addTo(map)
+            .bindPopup(`<b>Detonacja: ${bombType.toUpperCase()}</b><br>Zasięg cieplny: ${data.thermal}m`)
+            .openPopup();
+
+        activeLayers.push(thermal, pressure, radiation, fireball, marker);
+    });
+
+    document.getElementById('clear-map').onclick = clearLayers;
+</script>
+
+</body>
+</html>

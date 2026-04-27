@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nuclear Commander v4.0 - Tactical Interface</title>
+    <title>Nuclear Commander v5.0 - Ultimate Edition</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root { --green: #00ff41; --red: #ff3333; --bg: #0a0a0c; --ui-bg: rgba(16, 16, 20, 0.95); }
@@ -16,45 +16,54 @@
             background: var(--ui-bg); border: 1px solid #333;
             padding: 15px; border-radius: 8px; width: 300px;
             box-shadow: 0 0 25px rgba(0,0,0,0.9);
+            max-height: 90vh; overflow-y: auto;
         }
-        h2 { margin: 0 0 15px; font-size: 1rem; color: var(--red); text-align: center; letter-spacing: 2px; border-bottom: 1px solid #333; padding-bottom: 8px; }
         
-        .label { font-size: 0.7rem; color: #888; text-transform: uppercase; margin-bottom: 5px; display: block; }
+        /* Chowa pasek przewijania, by wygladalo profesjonalnie */
+        #ui::-webkit-scrollbar { width: 5px; }
+        #ui::-webkit-scrollbar-thumb { background: #444; }
+
+        h2 { margin: 0 0 10px; font-size: 1.1rem; color: var(--red); text-align: center; letter-spacing: 2px; border-bottom: 1px solid #333; padding-bottom: 8px; }
+        
+        .label { font-size: 0.7rem; color: #888; text-transform: uppercase; margin: 8px 0 4px; display: block; }
         select, input, button {
             width: 100%; background: #1a1a1a; border: 1px solid #444; color: var(--green);
-            padding: 10px; margin-bottom: 8px; border-radius: 4px; box-sizing: border-box; font-size: 0.9rem;
+            padding: 8px; margin-bottom: 5px; border-radius: 4px; box-sizing: border-box; font-size: 0.85rem;
         }
 
         /* Róża Wiatrów */
-        .compass-grid {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 15px;
-        }
-        .compass-btn {
-            padding: 8px 0; font-size: 0.7rem; background: #222; border: 1px solid #444; 
-            color: #888; cursor: pointer; transition: 0.2s;
-        }
+        .compass-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 10px; }
+        .compass-btn { padding: 6px 0; font-size: 0.7rem; background: #222; border: 1px solid #444; color: #888; cursor: pointer; transition: 0.2s; }
         .compass-btn.active { background: var(--green); color: black; border-color: var(--green); font-weight: bold; }
-        .compass-btn:hover:not(.active) { border-color: var(--green); color: var(--green); }
-
-        .btn-action { background: #333; border: none; color: white; cursor: pointer; font-weight: bold; }
-        .btn-clear { background: #422; color: #ff5555; margin-top: 10px; }
-        .btn-clear:hover { background: #622; }
+        
+        /* Przyciski Akcji */
+        .btn-action { background: #2a2a2a; border-color: #555; cursor: pointer; font-weight: bold; margin-top: 5px; }
+        .btn-action:hover { background: #444; color: white; }
+        .btn-clear { background: #311; color: var(--red); border-color: #522; margin-top: 10px; }
+        .btn-clear:hover { background: #511; }
+        .btn-sat { color: #fff; background: #1b3b5c; border-color: #2b5b8c; }
 
         #log { 
-            font-size: 0.7rem; background: rgba(0,0,0,0.5); padding: 8px; 
-            border: 1px solid #222; max-height: 100px; overflow-y: auto; margin-top: 10px;
+            font-size: 0.75rem; background: rgba(0,0,0,0.8); padding: 8px; 
+            border: 1px solid #333; max-height: 120px; overflow-y: auto; margin-top: 10px; color: #ddd;
         }
+        .log-entry { margin-bottom: 5px; border-bottom: 1px dashed #444; padding-bottom: 5px; }
+        .highlight { color: var(--red); font-weight: bold; }
 
-        .leaflet-popup-content-wrapper { background: #111; color: var(--green); border: 1px solid var(--green); }
+        .leaflet-popup-content-wrapper { background: #111; color: #fff; border: 1px solid var(--green); }
         .leaflet-popup-tip { background: var(--green); }
     </style>
 </head>
 <body>
 
-<div id="ui">
-    <h2>STRATEGIC CONTROL</h2>
+<div id="ui" data-html2canvas-ignore="false">
+    <h2>STRATEGIC CONTROL v5</h2>
     
-    <span class="label">Arsenał:</span>
+    <span class="label">Widok i Narzędzia:</span>
+    <button class="btn-action btn-sat" onclick="toggleMapMode()">Przełącz Satelitę</button>
+    <button class="btn-action" onclick="downloadReport()">📸 Zapisz Raport (Zdjęcie)</button>
+
+    <span class="label">Arsenał (Głowica):</span>
     <select id="bomb-preset" onchange="syncPreset()">
         <option value="0.02">Davy Crockett (0.02 kt)</option>
         <option value="15" selected>Little Boy (15 kt)</option>
@@ -64,9 +73,9 @@
         <option value="50000">Car Bomba (50 Mt)</option>
         <option value="custom">-- WŁASNA MOC --</option>
     </select>
-    <input type="number" id="custom-yield" value="15" placeholder="Wpisz moc w kt">
+    <input type="number" id="custom-yield" value="15" placeholder="Wpisz moc w kilotonach (kt)">
 
-    <span class="label">Kierunek wiatru (róża):</span>
+    <span class="label">Kierunek wiatru:</span>
     <div class="compass-grid">
         <button class="compass-btn" onclick="setWind(315, this)">NW</button>
         <button class="compass-btn" onclick="setWind(0, this)">N</button>
@@ -79,20 +88,56 @@
         <button class="compass-btn" onclick="setWind(135, this)">SE</button>
     </div>
 
-    <div id="log">SYSTEM READY. WAITING FOR TARGET.</div>
+    <div id="log">SYSTEM READY. CZEKAM NA WYZNACZENIE CELU...</div>
 
-    <button class="btn-clear" onclick="clearMap()">RESETUJ MAPĘ</button>
+    <button class="btn-action btn-clear" onclick="clearMap()">RESETUJ MAPĘ</button>
 </div>
 
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([52.23, 21.01], 6);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
+<script>
+    // Konfiguracja mapy z włączonym CORS, by umożliwić zrzuty ekranu
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([52.23, 21.01], 6);
+    
+    // Dwie warstwy - taktyczna i satelitarna
+    const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { crossOrigin: true });
+    const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { crossOrigin: true });
+    
+    darkLayer.addTo(map);
+    let isSatMode = false;
     let activeLayers = [];
     let currentWind = 90;
+
+    // Przełączanie trybu mapy
+    function toggleMapMode() {
+        if(isSatMode) {
+            map.removeLayer(satLayer); map.addLayer(darkLayer);
+        } else {
+            map.removeLayer(darkLayer); map.addLayer(satLayer);
+        }
+        isSatMode = !isSatMode;
+    }
+
+    // Robienie zrzutu ekranu i pobieranie
+    function downloadReport() {
+        const btn = document.querySelector('[onclick="downloadReport()"]');
+        const originalText = btn.innerText;
+        btn.innerText = "⏳ Generowanie...";
+        
+        html2canvas(document.body, { useCORS: true, allowTaint: false }).then(canvas => {
+            let link = document.createElement('a');
+            link.download = `Nuke-Report-${new Date().getTime()}.png`;
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+            btn.innerText = originalText;
+        }).catch(err => {
+            alert("Błąd tworzenia zrzutu ekranu. Sprawdź ustawienia przeglądarki.");
+            btn.innerText = originalText;
+        });
+    }
 
     function syncPreset() {
         const val = document.getElementById('bomb-preset').value;
@@ -110,10 +155,12 @@
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = ctx.createOscillator();
             const g = ctx.createGain();
-            osc.type = 'brownnoise'; // emulowane
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(50, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1, ctx.currentTime + 1.5);
             osc.connect(g); g.connect(ctx.destination);
-            osc.start(); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 2);
-            osc.stop(ctx.currentTime + 2);
+            osc.start(); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.5);
+            osc.stop(ctx.currentTime + 1.5);
         } catch(e) {}
     }
 
@@ -121,41 +168,42 @@
         const kt = parseFloat(document.getElementById('custom-yield').value) || 1;
         const pos = e.latlng;
         
-        // Model fizyczny (skalowanie promieni)
-        const sB = Math.pow(kt, 1/3); // Blast scale
-        const sT = Math.pow(kt, 0.43); // Thermal scale (rośnie szybciej)
+        const sB = Math.pow(kt, 1/3); // Fala uderzeniowa
+        const sT = Math.pow(kt, 0.43); // Promieniowanie cieplne
 
-        // Definicje stref (metry)
         let rawZones = [
-            { r: sB * 3300, col: '#555555', label: '1 PSI: Podmuch odczuwalny, pękające szyby', op: 0.1 },
-            { r: sT * 1200, col: '#ffaa00', label: 'Ciepło: Oparzenia 3 stopnia (poważne)', op: 0.3 },
-            { r: sB * 1100, col: '#ff4400', label: '5 PSI: Domy mieszkalne zniszczone', op: 0.35 },
-            { r: sB * 450,  col: '#ff0000', label: '20 PSI: Totalna destrukcja betonu', op: 0.4 },
-            { r: sB * 150,  col: '#ffff00', label: 'Kula ognia: Parowanie materii', op: 0.7 }
+            { r: sB * 3300, col: '#555555', label: '1 PSI: Pękające szyby' },
+            { r: sT * 1200, col: '#ffaa00', label: 'Ciepło: Oparzenia 3 st.' },
+            { r: sB * 1100, col: '#ff4400', label: '5 PSI: Domy zburzone' },
+            { r: sB * 450,  col: '#ff0000', label: '20 PSI: Totalna destrukcja' },
+            { r: sB * 150,  col: '#ffff00', label: 'Kula ognia' }
         ];
-
-        // KLUCZOWE: Sortowanie od największego do najmniejszego promienia
-        // Dzięki temu opisy i klikalność na mapie zawsze działają poprawnie.
+        
         rawZones.sort((a, b) => b.r - a.r);
 
-        // Efekt wstrząsu
-        document.getElementById('map').style.filter = 'invert(1)';
-        setTimeout(() => document.getElementById('map').style.filter = 'none', 100);
+        // Symulacja ofiar oparta na zasięgu 5 PSI (pow. w km kwadratowych)
+        const fatalRadiusKm = (sB * 1100) / 1000; 
+        const areaKm2 = Math.PI * Math.pow(fatalRadiusKm, 2);
+        // Średnia heurystyka gęstości (ok 2000 osób na km2) z randomizacją
+        let casualties = Math.floor(areaKm2 * (1000 + Math.random() * 2000));
+        if (casualties < 1) casualties = "Brak / Niewielkie";
+        else casualties = casualties.toLocaleString() + " szacowanych ofiar";
+
+        document.getElementById('map').style.filter = 'invert(1) sepia(1)';
+        setTimeout(() => document.getElementById('map').style.filter = 'none', 150);
         playSound();
 
-        // Rysowanie stref
+        // Rysowanie okręgów
         rawZones.forEach(z => {
             const c = L.circle(pos, {
-                radius: 0, color: z.col, fillColor: z.col, fillOpacity: z.op, weight: 1
-            }).addTo(map).bindPopup(`<b>${z.label}</b><br>Zasięg: ${(z.r/1000).toFixed(2)} km`);
-            
-            setTimeout(() => c.setRadius(z.r), 50);
+                radius: z.r, color: z.col, fillColor: z.col, fillOpacity: 0.25, weight: 1
+            }).addTo(map).bindPopup(`<b>${z.label}</b><br>Promień: ${(z.r/1000).toFixed(2)} km`);
             activeLayers.push(c);
         });
 
-        // Fallout (Opad)
+        // Fallout
         const rad = (currentWind - 90) * (Math.PI / 180);
-        const fLen = sB * 10000;
+        const fLen = sB * 12000; // Długość ogona
         const fEnd = [
             pos.lat - (fLen / 111000) * Math.sin(rad),
             pos.lng + (fLen / (111000 * Math.cos(pos.lat * Math.PI/180))) * Math.cos(rad)
@@ -163,26 +211,31 @@
         
         const fallout = L.polygon([
             pos,
-            [pos.lat + (rawZones[0].r/111000), pos.lng],
+            [pos.lat + (rawZones[0].r/150000), pos.lng],
             fEnd,
-            [pos.lat - (rawZones[0].r/111000), pos.lng]
-        ], { color: '#6b8e23', fillOpacity: 0.15, weight: 1, dashArray: '5,5' }).addTo(map)
-        .bindPopup("Strefa opadu radioaktywnego (zależna od wiatru)");
+            [pos.lat - (rawZones[0].r/150000), pos.lng]
+        ], { color: '#6b8e23', fillOpacity: 0.2, weight: 1, dashArray: '4,4' }).addTo(map)
+        .bindPopup("Radioaktywny opad (Fallout)");
         
         activeLayers.push(fallout);
 
-        // Marker uderzenia
-        const m = L.circleMarker(pos, { radius: 3, color: 'white' }).addTo(map);
+        // Celownik (Marker)
+        const m = L.circleMarker(pos, { radius: 3, color: 'white', weight: 2, fillColor: '#f00', fillOpacity: 1 }).addTo(map);
         activeLayers.push(m);
 
+        // Aktualizacja logów
         const log = document.getElementById('log');
-        log.innerHTML = `> UDERZENIE: ${kt}kt<br>> KOORD: ${pos.lat.toFixed(2)}, ${pos.lng.toFixed(2)}<br>` + log.innerHTML;
+        log.innerHTML = `<div class="log-entry">
+            > <b>DETONACJA: ${kt} kt</b><br>
+            > Cel: [${pos.lat.toFixed(3)}, ${pos.lng.toFixed(3)}]<br>
+            > <span class="highlight">Straty: ${casualties}</span>
+        </div>` + log.innerHTML;
     });
 
     function clearMap() {
         activeLayers.forEach(l => map.removeLayer(l));
         activeLayers = [];
-        document.getElementById('log').innerHTML = "MAPA WYCZYSZCZONA.";
+        document.getElementById('log').innerHTML = "MAPA WYCZYSZCZONA. GOTOWOŚĆ BOJOWA.";
     }
 </script>
 </body>

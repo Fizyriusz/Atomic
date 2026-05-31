@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('atomic_disclaimer_accepted', 'true');
         disclaimer.style.display = 'none';
         // Inicjalizacja domyślnego modułu
-        switchModule('survival');
+        window.switchModule('survival');
     });
 
     btnShow.addEventListener('click', () => {
@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     modBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
             const targetMod = e.target.getAttribute('data-target');
-            switchModule(targetMod);
+            window.switchModule(targetMod);
         });
     });
 
@@ -60,14 +60,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-function switchModule(modId) {
+window.switchModule = function(modId) {
     // Update buttons
     document.querySelectorAll('.mod-btn').forEach(b => b.classList.remove('active'));
-    document.querySelector(`.mod-btn[data-target="${modId}"]`).classList.add('active');
+    const btn = document.querySelector(`.mod-btn[data-target="${modId}"]`);
+    if(btn) btn.classList.add('active');
 
     // Update views
     document.querySelectorAll('.app-module').forEach(m => m.classList.remove('active'));
-    document.getElementById(`module-${modId}`).classList.add('active');
+    const mod = document.getElementById(`module-${modId}`);
+    if(mod) mod.classList.add('active');
 
     // Specyficzna logika modułów po aktywacji
     if(modId === 'war' && typeof initWarRoom === 'function') {

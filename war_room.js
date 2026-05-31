@@ -1,4 +1,4 @@
-// war_room.js - Moduł 2: War Room (Pełna mapa taktyczna i strategiczna)
+// war_room.js - Moduł 2: War Room (Pełna mapa taktyczna i strategiczna) + Moduł 3: Misje i Wyzwania
 
 let map;
 let darkLayer, satLayer;
@@ -10,6 +10,12 @@ let isWarRoomInitialized = false;
 let selectionMode = 'base'; // 'base' lub 'target'
 let activeCarrier = 'icbm';
 
+// Stan aktywnej misji
+let activeMissionId = null;
+let activeMissionBasesRemaining = 0;
+let activeMissionMissilesRemaining = 0;
+let missionTargetLatLng = null;
+
 window.initWarRoom = function() {
     if(isWarRoomInitialized) {
         map.invalidateSize();
@@ -17,9 +23,25 @@ window.initWarRoom = function() {
     }
     
     setTimeout(() => {
-        map = L.map('map-container', { zoomControl: false, attributionControl: false }).setView([30, 0], 2);
-        darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-        satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
+        const bounds = L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180));
+        map = L.map('map-container', { 
+            zoomControl: false, 
+            attributionControl: false,
+            minZoom: 2,
+            maxBounds: bounds,
+            maxBoundsViscosity: 1.0
+        }).setView([30, 0], 2);
+
+        // Zapobiegamy dublowaniu kontynentów przez { noWrap: true }
+        darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            noWrap: true,
+            bounds: bounds
+        }).addTo(map);
+
+        satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            noWrap: true,
+            bounds: bounds
+        });
 
         map.on('click', handleMapClick);
         isWarRoomInitialized = true;
@@ -39,12 +61,47 @@ window.setWarMode = function(mode) {
 function handleMapClick(e) {
     const latlng = e.latlng;
     
+    // Blokada w misjach
+    if (activeMissionId) {
+        if (activeCarrier !== 'patriot') {
+            if (selectionMode === 'base') {
+                if (activeMissionBasesRemaining <= 0) {
+                    logWarMsg("BŁĄD: OSIĄGNIĘTO LIMIT POZYCJI STARTOWYCH DLA TEJ MISJI.");
+                    return;
+                }
+                
+                // Specyficzny warunek dla misji "Cicha Woda" - odległość okrętu od celu < 1000km
+                if (activeMissionId === 'm1' && missionTargetLatLng) {
+                    const distToLondon = map.distance(latlng, missionTargetLatLng) / 1000;
+                    if (distToLondon > 1000) {
+                        logWarMsg(`<span style="color:var(--red);">BŁĄD: OKRĘT MUSI BYĆ BLIŻEJ CELU (AKTUALNIE: ${distToLondon.toFixed(0)} KM. WYMAGANE < 1000 KM).</span>`);
+                        return;
+                    }
+                }
+                
+                if(warBase) map.removeLayer(warBase.marker);
+                let iconHtml = '🏢';
+                if (activeCarrier === 'sub') iconHtml = '⚓';
+                if (activeCarrier === 'bomber') iconHtml = '✈️';
+                
+                const m = L.marker(latlng, { icon: L.divIcon({ className:'', html:`<div style="font-size:24px; text-shadow:0 0 10px var(--blue);">${iconHtml}</div>` }) }).addTo(map);
+                warBase = { latlng, marker: m };
+                activeMissionBasesRemaining--;
+                selectionMode = 'target'; // chociaż cel jest już z góry ustalony w misji
+                logWarMsg("POZYCJA STARTOWA ZABEZPIECZONA. ROZPOCZNIJ OSTRZAŁ.");
+            } else {
+                logWarMsg("BŁĄD: CEL TEJ MISJI JEST JUŻ USTALONY ODGÓRNIE.");
+                return;
+            }
+        }
+        updateWarStats();
+        return;
+    }
+
     if (activeCarrier === 'patriot') {
-        // Tarcza Patriot - stawiamy baterię obronną
         const batteryIcon = L.divIcon({ className:'', html:'<div style="font-size:24px; text-shadow:0 0 10px var(--blue);">🛡️</div>' });
         const marker = L.marker(latlng, { icon: batteryIcon }).addTo(map);
         
-        // Zasięg tarczy (np. 800 km)
         const radiusMeters = 800 * 1000;
         const circle = L.circle(latlng, {
             radius: radiusMeters,
@@ -59,10 +116,9 @@ function handleMapClick(e) {
         
         logWarMsg(`ZAINSTALOWANO BATERIĘ PATRIOT. ZASIĘG OBRONY: 800 KM.`);
     } else {
-        // Logika standardowa (Silos / Sub / Bomber)
         if(selectionMode === 'base') {
             if(warBase) map.removeLayer(warBase.marker);
-            let iconHtml = '🏢'; // Silos
+            let iconHtml = '🏢';
             if (activeCarrier === 'sub') iconHtml = '⚓';
             if (activeCarrier === 'bomber') iconHtml = '✈️';
             
@@ -83,9 +139,9 @@ function handleMapClick(e) {
 function updateWarStats() {
     if(warBase && warTarget) {
         const dist = (map.distance(warBase.latlng, warTarget.latlng) / 1000).toFixed(0);
-        let speedKmh = 24000; // ICBM
+        let speedKmh = 24000;
         if(activeCarrier === 'bomber') speedKmh = 1000;
-        if(activeCarrier === 'sub') speedKmh = 8000; // SLBM
+        if(activeCarrier === 'sub') speedKmh = 8000;
         
         const timeMin = (dist / (speedKmh / 60)).toFixed(1);
         
@@ -102,7 +158,6 @@ window.selectCarrier = function(btn) {
     btn.classList.add('active');
     activeCarrier = btn.dataset.type;
     
-    // Konfiguracja widoku pod wybrany typ uzbrojenia
     if (activeCarrier === 'patriot') {
         document.getElementById('btn-war-target').disabled = true;
         document.getElementById('btn-war-launch').disabled = true;
@@ -120,18 +175,48 @@ window.selectCarrier = function(btn) {
 window.launchWarAction = async function() {
     if(!warBase || !warTarget) return;
     
+    // Obsługa limitu pocisków w misjach
+    if (activeMissionId) {
+        if (activeMissionMissilesRemaining <= 0) {
+            logWarMsg("BŁĄD: BRAK AMUNICJI DO WYKONANIA TEJ MISJI.");
+            return;
+        }
+        activeMissionMissilesRemaining--;
+        logWarMsg(`WYSTRZELONO POCISK. POZOSTAŁO: ${activeMissionMissilesRemaining}`);
+    }
+
     const yieldKt = parseFloat(document.getElementById('war-yield').value);
     document.getElementById('btn-war-launch').disabled = true;
     logWarMsg(`ODPALENIE GŁOWICY: ${yieldKt}kT...`);
     
-    await animateMissile(warBase.latlng, warTarget.latlng, { kt: yieldKt, carrier: activeCarrier });
+    const result = await animateMissile(warBase.latlng, warTarget.latlng, { kt: yieldKt, carrier: activeCarrier });
+    
+    // Sprawdzanie warunków wygranej / przegranej w misjach
+    if (activeMissionId) {
+        if (result.success && result.hitTarget) {
+            // ZWYCIĘSTWO!
+            showMissionModal(true, "OPERACJA POWIODŁA SIĘ!", "Cel strategiczny został całkowicie zniszczony. Przełamałeś obronę wroga. Gratulacje, dowódco!");
+            clearWarMap();
+        } else {
+            // Pocisk został przechwycony lub chybił, a skończyła się amunicja
+            if (activeMissionMissilesRemaining <= 0) {
+                setTimeout(() => {
+                    showMissionModal(false, "OPERACJA NIEUDANA", "Wszystkie Twoje pociski zostały przechwycone lub chybiły celu. Wróg zdołał się obronić.");
+                    clearWarMap();
+                }, 1000);
+            } else {
+                document.getElementById('btn-war-launch').disabled = false;
+            }
+        }
+    }
 }
 
+// Fizyka pocisków: LatLng interpolation (odporna na przesuwanie i zoomowanie mapy)
 function animateMissile(start, end, data) {
+    const startLatLng = L.latLng(start);
+    const endLatLng = L.latLng(end);
+
     return new Promise(res => {
-        const sP = map.latLngToContainerPoint(start);
-        const eP = map.latLngToContainerPoint(end);
-        
         const div = document.createElement('div');
         div.style.position = 'absolute';
         div.style.width = '8px'; div.style.height = '8px';
@@ -139,32 +224,41 @@ function animateMissile(start, end, data) {
         div.style.borderRadius = '50%';
         div.style.boxShadow = `0 0 15px ${data.carrier === 'bomber' ? 'var(--blue)' : 'var(--red)'}`;
         div.style.zIndex = '3000';
-        div.style.left = sP.x + 'px'; div.style.top = sP.y + 'px';
         div.style.pointerEvents = 'none';
+        
+        // Ustawienie początkowej pozycji pikselowej
+        const initPoint = map.latLngToContainerPoint(startLatLng);
+        div.style.left = initPoint.x + 'px'; div.style.top = initPoint.y + 'px';
         document.getElementById('map-container').appendChild(div);
 
         const startTime = performance.now();
         let duration = 2000; // ICBM
-        if(data.carrier === 'bomber') duration = 6000; // Bombowiec leci dłużej
-        if(data.carrier === 'sub') duration = 1200;    // Okręt bliżej / szybciej
+        if(data.carrier === 'bomber') duration = 6000;
+        if(data.carrier === 'sub') duration = 1200;
 
         let intercepted = false;
-        let firedPatriots = new Set(); // Zapobiega ciągłemu strzelaniu z tej samej baterii
+        let firedPatriots = new Set();
+
+        // Obiekt pomocniczy do dynamicznego przekazywania współrzędnych rakiety do antyrakiet Patriot
+        let currentPosHolder = { latlng: startLatLng };
 
         function step(now) {
             if (intercepted) return;
 
             const progress = (now - startTime) / duration;
             if(progress < 1) {
-                const curX = sP.x + (eP.x - sP.x) * progress;
-                const arcY = Math.sin(progress * Math.PI) * 120; // Parabola lotu
-                const curY = sP.y + (eP.y - sP.y) * progress - arcY;
+                // Interpolacja współrzędnych geograficznych (odporne na zoom/pan)
+                const curLat = startLatLng.lat + (endLatLng.lat - startLatLng.lat) * progress;
+                const curLng = startLatLng.lng + (endLatLng.lng - startLatLng.lng) * progress;
+                const currentLatLng = L.latLng(curLat, curLng);
+                currentPosHolder.latlng = currentLatLng;
+
+                // Przeliczenie pozycji geograficznej na piksele kontenera na żywo
+                const curPoint = map.latLngToContainerPoint(currentLatLng);
+                const arcY = Math.sin(progress * Math.PI) * 120; // Parabola wysokości
                 
-                div.style.left = curX + 'px';
-                div.style.top = curY + 'px';
-                
-                // Pozycja geograficzna pocisku na mapie
-                const currentLatLng = map.containerPointToLatLng([curX, curY]);
+                div.style.left = curPoint.x + 'px';
+                div.style.top = (curPoint.y - arcY) + 'px';
                 
                 // --- KONTROLA PRZECHWYCENIA PRZEZ PATRIOT ---
                 for (let i = 0; i < patriotBatteries.length; i++) {
@@ -175,22 +269,19 @@ function animateMissile(start, end, data) {
                     if (distToBattery <= 800000) { // Zasięg 800 km
                         firedPatriots.add(i);
                         
-                        // Oblicz szansę zestrzelenia
-                        let interceptChance = 0.70; // ICBM
+                        let interceptChance = 0.70;
                         if (data.carrier === 'sub') interceptChance = 0.50;
                         if (data.carrier === 'bomber') interceptChance = 0.05; // Stealth
                         
                         logWarMsg(`PRÓBA PRZECHWYCENIA PRZEZ BATERIĘ PATRIOT...`);
                         
-                        // Animacja rakiety przechwytującej
-                        animateInterceptor(battery.latlng, currentLatLng).then(() => {
+                        animateInterceptor(battery.latlng, currentPosHolder).then(() => {
                             if (Math.random() < interceptChance) {
                                 intercepted = true;
                                 if(div.parentNode) div.parentNode.removeChild(div);
                                 showInterceptionEffect(currentLatLng);
                                 logWarMsg("<span style='color:var(--blue);'>[SUKCES] RAKIETA PRZECHWYCONA I ZNISZCZONA!</span>");
-                                document.getElementById('btn-war-launch').disabled = false;
-                                res({ success: false });
+                                res({ success: false, hitTarget: false });
                             } else {
                                 logWarMsg("<span style='color:var(--red);'>[PORAŻKA] PRÓBA PRZECHWYCENIA NIEUDANA.</span>");
                             }
@@ -201,18 +292,29 @@ function animateMissile(start, end, data) {
                 if (!intercepted) requestAnimationFrame(step);
             } else {
                 if(div.parentNode) div.parentNode.removeChild(div);
-                detonate(end, data);
-                res({ success: true });
+                detonate(endLatLng, data);
+                
+                // Weryfikacja czy uderzenie jest wystarczająco blisko celu
+                let hitTarget = false;
+                if (missionTargetLatLng) {
+                    const distToTarget = map.distance(endLatLng, missionTargetLatLng);
+                    if (distToTarget <= 50000) { // trafienie w promieniu 50km
+                        hitTarget = true;
+                    }
+                }
+                
+                res({ success: true, hitTarget: hitTarget });
             }
         }
         requestAnimationFrame(step);
     });
 }
 
-function animateInterceptor(start, end) {
+// Fizyka antyrakiety: Dynamiczne śledzenie pozycji rakiety na podstawie LatLng
+function animateInterceptor(start, targetHolder) {
+    const startLatLng = L.latLng(start);
+
     return new Promise(res => {
-        const sP = map.latLngToContainerPoint(start);
-        
         const div = document.createElement('div');
         div.style.position = 'absolute';
         div.style.width = '5px'; div.style.height = '5px';
@@ -220,19 +322,26 @@ function animateInterceptor(start, end) {
         div.style.borderRadius = '50%';
         div.style.boxShadow = '0 0 10px var(--blue)';
         div.style.zIndex = '3005';
-        div.style.left = sP.x + 'px'; div.style.top = sP.y + 'px';
         div.style.pointerEvents = 'none';
+        
+        const initPoint = map.latLngToContainerPoint(startLatLng);
+        div.style.left = initPoint.x + 'px'; div.style.top = initPoint.y + 'px';
         document.getElementById('map-container').appendChild(div);
         
         const startTime = performance.now();
-        const duration = 500; // Szybki pocisk Patriot
+        const duration = 500;
         
         function step(now) {
             const progress = (now - startTime) / duration;
-            // Aktualizujemy cel, bo rakieta leci do ruchomego celu
-            const eP = map.latLngToContainerPoint(end);
             
             if(progress < 1) {
+                // Pobieramy aktualną geolokalizację wrogiej rakiety
+                const targetLatLng = targetHolder.latlng;
+                
+                // Przeliczamy i animujemy
+                const sP = map.latLngToContainerPoint(startLatLng);
+                const eP = map.latLngToContainerPoint(targetLatLng);
+                
                 const curX = sP.x + (eP.x - sP.x) * progress;
                 const curY = sP.y + (eP.y - sP.y) * progress;
                 div.style.left = curX + 'px';
@@ -275,15 +384,13 @@ function detonate(latlng, data) {
     setTimeout(() => mapEl.style.filter = "none", 300);
     
     const height = document.getElementById('war-height').value;
-    
-    // Obliczanie stref zniszczeń
     let yieldFactor = Math.pow(data.kt, 1/3);
     let scale = height === 'airburst' ? 1.5 : 1.0;
     
     const zones = [
         { r: yieldFactor * 3300 * scale, col: '#555', label: 'Podmuch' },
         { r: yieldFactor * 1100 * scale, col: '#ff2a2a', label: 'Zniszczenia' },
-        { r: yieldFactor * 150, col: '#ffff00', label: 'Kula ognia' } // Kula ognia się nie zmienia od wysokości
+        { r: yieldFactor * 150, col: '#ffff00', label: 'Kula ognia' }
     ];
 
     zones.forEach(z => {
@@ -291,15 +398,13 @@ function detonate(latlng, data) {
         activeLayers.push(c);
     });
     
-    // --- OPAD RADIOAKTYWNY (Tylko detonacja naziemna) ---
     if (height === 'surface') {
         const windSpeed = parseFloat(document.getElementById('wind-speed').value);
         const windDir = parseFloat(document.getElementById('war-wind-dir').value);
         
-        // Matematyka elipsy opadu
         const rad = windDir * Math.PI / 180;
-        const L_km = Math.pow(data.kt, 0.4) * windSpeed * 0.1; // Długość opadu
-        const W_km = L_km * 0.25; // Szerokość opadu
+        const L_km = Math.pow(data.kt, 0.4) * windSpeed * 0.1;
+        const W_km = L_km * 0.25;
         
         const lat_tip = latlng.lat + (L_km / 111.3) * Math.cos(rad);
         const lng_tip = latlng.lng + (L_km / (111.3 * Math.cos(latlng.lat * Math.PI / 180))) * Math.sin(rad);
@@ -327,9 +432,7 @@ function detonate(latlng, data) {
     }
     
     logWarMsg(`DETONACJA: ${data.kt} KT (${height === 'airburst' ? 'POWIETRZNA' : 'NAZIEMNA'}).`);
-    document.getElementById('btn-war-launch').disabled = false;
     
-    // Dodaj megatony do globalnego licznika
     let megatons = data.kt >= 1000 ? (data.kt / 1000) : 1;
     if(window.addGlobalDetonation) window.addGlobalDetonation(megatons);
 }
@@ -342,6 +445,15 @@ window.clearWarMap = function() {
     document.getElementById('btn-war-launch').disabled = true;
     document.getElementById('war-stats').innerHTML = "";
     document.getElementById('war-scenario').value = "none";
+    
+    // Przywracamy normalny widok guzików Triady po wyjściu z misji
+    document.querySelectorAll('.triad-btn').forEach(b => {
+        b.style.display = 'block';
+    });
+    document.getElementById('btn-war-target').disabled = false;
+    
+    activeMissionId = null;
+    missionTargetLatLng = null;
     logWarMsg("RESET SYSTEMÓW DOWODZENIA.");
 }
 
@@ -351,39 +463,34 @@ function logWarMsg(msg) {
 }
 
 // ==============================================
-// 4. SCENARIUSZE HISTORYCZNE I GEOPOLITYCZNE
+// SCENARIUSZE HISTORYCZNE
 // ==============================================
 let skynetInterval = null;
 
 window.loadScenario = function(scenName) {
-    // Zatrzymaj Skynet jeśli działa w tle
     if (skynetInterval) {
         clearInterval(skynetInterval);
         skynetInterval = null;
     }
     
     clearWarMap();
-    
     if (scenName === 'none') return;
     
     if (scenName === 'cuba') {
         map.setView([24, -81], 6);
         
-        // Radziecka Baza na Kubie (Havana)
         const baseLatLng = [23.0, -82.3];
         const mBase = L.marker(baseLatLng, { icon: L.divIcon({ className:'', html:'<div style="font-size:24px; text-shadow:0 0 10px var(--red);">⚓</div>' }) }).addTo(map);
         warBase = { latlng: baseLatLng, marker: mBase };
         
-        // Cel w Miami
         const targetLatLng = [25.77, -80.19];
         const mTarget = L.marker(targetLatLng, { icon: L.divIcon({ className:'', html:'<div style="font-size:24px; text-shadow:0 0 10px var(--red);">🎯</div>' }) }).addTo(map);
         warTarget = { latlng: targetLatLng, marker: mTarget };
         
-        // Bateria Patriot w Homestead (Floryda) - zasięg obrony Miami
         const patriotLatLng = [25.48, -80.47];
         const mPatriot = L.marker(patriotLatLng, { icon: L.divIcon({ className:'', html:'<div style="font-size:24px; text-shadow:0 0 10px var(--blue);">🛡️</div>' }) }).addTo(map);
         const circle = L.circle(patriotLatLng, {
-            radius: 400 * 1000, // 400km
+            radius: 400 * 1000,
             color: 'var(--blue)',
             weight: 1,
             dashArray: '3, 5',
@@ -393,36 +500,32 @@ window.loadScenario = function(scenName) {
         patriotBatteries.push({ latlng: patriotLatLng, marker: mPatriot, circle });
         activeLayers.push(mPatriot, circle);
         
-        // Ustawienie typu broni
         activeCarrier = 'icbm';
         document.getElementById('war-yield').value = "350";
         document.getElementById('war-height').value = "surface";
         
         updateWarStats();
-        logWarMsg("SCENARIUSZ: KRYZYS KUBAŃSKI 1962. BATERIA PATRIOT ZAINSTALOWANA NA FLORYDZIE (400KM).");
+        logWarMsg("SCENARIUSZ: KRYZYS KUBAŃSKI 1962.");
     } 
     else if (scenName === 'coldwar') {
         map.setView([45, 0], 2);
         
         logWarMsg("INICJUJĘ NAJCZARNIEJSZY SCENARIUSZ ZIMNEJ WOJNY...");
-        logWarMsg("WYLICZANIE CELÓW STRATEGICZNYCH (USA vs ZSRR)...");
         
-        // Symulacja masowej salwy
         const bases = [
-            { name: "Silos Wyoming (USA)", latlng: [41.1, -104.8], side: "us" },
-            { name: "Silos North Dakota (USA)", latlng: [47.5, -101.3], side: "us" },
-            { name: "Silos Kozielsk (ZSRR)", latlng: [54.0, 35.7], side: "ussr" },
-            { name: "Silos Użur (ZSRR)", latlng: [55.3, 89.8], side: "ussr" }
+            { name: "Silos Wyoming", latlng: [41.1, -104.8] },
+            { name: "Silos North Dakota", latlng: [47.5, -101.3] },
+            { name: "Silos Kozielsk", latlng: [54.0, 35.7] },
+            { name: "Silos Użur", latlng: [55.3, 89.8] }
         ];
         
         const targets = [
-            { name: "Moskwa", latlng: [55.75, 37.61], side: "us_target" },
-            { name: "Leningrad", latlng: [59.93, 30.33], side: "us_target" },
-            { name: "Nowy Jork", latlng: [40.71, -74.00], side: "ussr_target" },
-            { name: "Waszyngton", latlng: [38.90, -77.03], side: "ussr_target" }
+            { name: "Moskwa", latlng: [55.75, 37.61] },
+            { name: "Leningrad", latlng: [59.93, 30.33] },
+            { name: "Nowy Jork", latlng: [40.71, -74.00] },
+            { name: "Waszyngton", latlng: [38.90, -77.03] }
         ];
         
-        // Rysuj bazy i cele
         bases.forEach(b => {
             const m = L.marker(b.latlng, { icon: L.divIcon({ className:'', html:`<div style="font-size:18px;">🏢</div>` }) }).addTo(map);
             activeLayers.push(m);
@@ -432,10 +535,9 @@ window.loadScenario = function(scenName) {
             activeLayers.push(m);
         });
         
-        // Dodajmy po jednej tarczy patriot wokół Waszyngtonu i Moskwy
         const pats = [
-            { latlng: [38.90, -77.03], range: 600 }, // Waszyngton
-            { latlng: [55.75, 37.61], range: 600 }  // Moskwa
+            { latlng: [38.90, -77.03], range: 600 },
+            { latlng: [55.75, 37.61], range: 600 }
         ];
         
         pats.forEach(p => {
@@ -445,13 +547,10 @@ window.loadScenario = function(scenName) {
             activeLayers.push(m, c);
         });
         
-        // Automatyczny start sekwencyjny po 2 sekundach
         setTimeout(() => {
-            // US Silos strzelają do ZSRR
             animateMissile(bases[0].latlng, targets[0].latlng, { kt: 800, carrier: "icbm" });
             animateMissile(bases[1].latlng, targets[1].latlng, { kt: 800, carrier: "icbm" });
             
-            // ZSRR Silos strzelają do USA
             setTimeout(() => {
                 animateMissile(bases[2].latlng, targets[2].latlng, { kt: 800, carrier: "icbm" });
                 animateMissile(bases[3].latlng, targets[3].latlng, { kt: 800, carrier: "icbm" });
@@ -461,21 +560,18 @@ window.loadScenario = function(scenName) {
     else if (scenName === 'skynet') {
         map.setView([30, 0], 2);
         logWarMsg("<span style='color:var(--red); font-weight:bold;'>[ALERT] SKYNET UZYSKAŁ AUTONOMIĘ.</span>");
-        logWarMsg("<span style='color:var(--red);'>PRZEJMOWANIE SILOSÓW BALISTYCZNYCH...</span>");
         
         let counter = 0;
         skynetInterval = setInterval(() => {
-            if (counter >= 15) { // 15 rakiet w serii
+            if (counter >= 15) {
                 clearInterval(skynetInterval);
                 logWarMsg("PROTOKÓŁ ZAKOŃCZONY. LUDZKOŚĆ UNICESTWIONA.");
                 return;
             }
             
-            // Losowe punkty na globie
             const randBase = [ (Math.random() * 50) + 10, (Math.random() * 120) - 60 ];
             const randTarget = [ (Math.random() * 50) + 10, (Math.random() * 120) - 60 ];
             
-            // Umieść chwilowy marker
             const mB = L.marker(randBase, { icon: L.divIcon({ className:'', html:'<div style="font-size:16px;">🤖</div>' }) }).addTo(map);
             const mT = L.marker(randTarget, { icon: L.divIcon({ className:'', html:'<div style="font-size:16px;">🎯</div>' }) }).addTo(map);
             activeLayers.push(mB, mT);
@@ -484,4 +580,163 @@ window.loadScenario = function(scenName) {
             counter++;
         }, 800);
     }
+}
+
+// ==============================================
+// MODUŁ 3: LOGIKA MISJI I WYZWAŃ
+// ==============================================
+window.startMission = function(missionId) {
+    // 1. Przełączamy na tryb War Room (mapę)
+    window.switchModule('war');
+    clearWarMap();
+    
+    activeMissionId = missionId;
+    
+    if (missionId === 'm1') {
+        // OPERACJA: CICHA WODA
+        logWarMsg("<span style='color:var(--blue); font-weight:bold;'>URUCHOMIONO OPERACJĘ: CICHA WODA</span>");
+        
+        // Cel: Londyn
+        missionTargetLatLng = L.latLng(51.5074, -0.1278);
+        const mTarget = L.marker(missionTargetLatLng, { icon: L.divIcon({ className:'', html:'<div style="font-size:24px; text-shadow:0 0 10px var(--red);">🎯</div>' }) }).addTo(map);
+        warTarget = { latlng: missionTargetLatLng, marker: mTarget };
+        activeLayers.push(mTarget);
+        
+        // Tarcza Patriot w Londynie
+        const patLatLng = L.latLng(51.50, -0.12);
+        const mPat = L.marker(patLatLng, { icon: L.divIcon({ className:'', html:'<div style="font-size:24px; text-shadow:0 0 10px var(--blue);">🛡️</div>' }) }).addTo(map);
+        const circle = L.circle(patLatLng, {
+            radius: 800 * 1000,
+            color: 'var(--blue)',
+            weight: 1,
+            dashArray: '3, 5',
+            fillOpacity: 0.05
+        }).addTo(map);
+        
+        patriotBatteries.push({ latlng: patLatLng, marker: mPat, circle });
+        activeLayers.push(mPat, circle);
+        
+        // Blokada uzbrojenia na SSBN
+        activeCarrier = 'sub';
+        document.querySelectorAll('.triad-btn').forEach(btn => {
+            if(btn.dataset.type !== 'sub') btn.style.display = 'none';
+            else btn.classList.add('active');
+        });
+        document.getElementById('btn-war-target').disabled = true; // Cel zablokowany
+        document.getElementById('war-yield').value = "350";
+        
+        // Limity
+        activeMissionBasesRemaining = 1;
+        activeMissionMissilesRemaining = 2;
+        
+        map.setView([51.5, -0.1], 4);
+        logWarMsg("ZASADY: ROZMIEŚĆ OKRĘT PODWODNY ⚓ BLISKO WYBRZEŻA LONDYNU (< 1000 KM) I ODPAL POCISK SLBM. MASZ 2 POCISKI.");
+    } 
+    else if (missionId === 'm2') {
+        // OPERACJA: STEALTH SHIELD
+        logWarMsg("<span style='color:var(--blue); font-weight:bold;'>URUCHOMIONO OPERACJĘ: STEALTH SHIELD</span>");
+        
+        // Cel: Murmańsk
+        missionTargetLatLng = L.latLng(68.97, 33.08);
+        const mTarget = L.marker(missionTargetLatLng, { icon: L.divIcon({ className:'', html:'<div style="font-size:24px; text-shadow:0 0 10px var(--red);">🎯</div>' }) }).addTo(map);
+        warTarget = { latlng: missionTargetLatLng, marker: mTarget };
+        activeLayers.push(mTarget);
+        
+        // Bardzo silna tarcza Patriot w Murmańsku (90% szans)
+        const patLatLng = L.latLng(68.97, 33.08);
+        const mPat = L.marker(patLatLng, { icon: L.divIcon({ className:'', html:'<div style="font-size:24px; text-shadow:0 0 10px var(--blue);">🛡️</div>' }) }).addTo(map);
+        const circle = L.circle(patLatLng, {
+            radius: 800 * 1000,
+            color: 'var(--blue)',
+            weight: 1.5,
+            dashArray: '3, 5',
+            fillOpacity: 0.08
+        }).addTo(map);
+        
+        patriotBatteries.push({ latlng: patLatLng, marker: mPat, circle });
+        activeLayers.push(mPat, circle);
+        
+        // Blokada na Bomber (B-2)
+        activeCarrier = 'bomber';
+        document.querySelectorAll('.triad-btn').forEach(btn => {
+            if(btn.dataset.type !== 'bomber') btn.style.display = 'none';
+            else btn.classList.add('active');
+        });
+        document.getElementById('btn-war-target').disabled = true;
+        document.getElementById('war-yield').value = "350";
+        
+        // Limity
+        activeMissionBasesRemaining = 1;
+        activeMissionMissilesRemaining = 1;
+        
+        map.setView([65, 25], 4);
+        logWarMsg("ZASADY: USTAW BAZĘ BOMBOWCA ✈️ NA MAPIE I ROZPOCZNIJ ATTAK. B-2 STEALTH POWINIEN OMINĄĆ TARCZĘ. MASZ 1 SZANSĘ.");
+    } 
+    else if (missionId === 'm3') {
+        // OPERACJA: PRZEŁAMANIE TARCZ
+        logWarMsg("<span style='color:var(--blue); font-weight:bold;'>URUCHOMIONO OPERACJĘ: PRZEŁAMANIE TARCZ</span>");
+        
+        // Cel: Waszyngton
+        missionTargetLatLng = L.latLng(38.9072, -77.0369);
+        const mTarget = L.marker(missionTargetLatLng, { icon: L.divIcon({ className:'', html:'<div style="font-size:24px; text-shadow:0 0 10px var(--red);">🎯</div>' }) }).addTo(map);
+        warTarget = { latlng: missionTargetLatLng, marker: mTarget };
+        activeLayers.push(mTarget);
+        
+        // Dwie baterie Patriot (Waszyngton i Norfolk)
+        const pat1 = L.latLng(38.90, -77.03);
+        const mPat1 = L.marker(pat1, { icon: L.divIcon({ className:'', html:'<div style="font-size:24px; text-shadow:0 0 10px var(--blue);">🛡️</div>' }) }).addTo(map);
+        const c1 = L.circle(pat1, { radius: 800 * 1000, color: 'var(--blue)', weight: 1, dashArray: '3, 5', fillOpacity: 0.05 }).addTo(map);
+        
+        const pat2 = L.latLng(36.85, -76.28);
+        const mPat2 = L.marker(pat2, { icon: L.divIcon({ className:'', html:'<div style="font-size:24px; text-shadow:0 0 10px var(--blue);">🛡️</div>' }) }).addTo(map);
+        const c2 = L.circle(pat2, { radius: 800 * 1000, color: 'var(--blue)', weight: 1, dashArray: '3, 5', fillOpacity: 0.05 }).addTo(map);
+        
+        patriotBatteries.push({ latlng: pat1, marker: mPat1, circle: c1 }, { latlng: pat2, marker: mPat2, circle: c2 });
+        activeLayers.push(mPat1, c1, mPat2, c2);
+        
+        // Blokada na ICBM
+        activeCarrier = 'icbm';
+        document.querySelectorAll('.triad-btn').forEach(btn => {
+            if(btn.dataset.type !== 'icbm') btn.style.display = 'none';
+            else btn.classList.add('active');
+        });
+        document.getElementById('btn-war-target').disabled = true;
+        document.getElementById('war-yield').value = "800";
+        
+        // Limity
+        activeMissionBasesRemaining = 3; // Można postawić 3 silosy
+        activeMissionMissilesRemaining = 3;
+        
+        map.setView([45, -70], 3);
+        logWarMsg("ZASADY: ROZSTAW 3 SILOSY BALISTYCZNE 🏢 I WYŚLIJ MASOWĄ SALWĘ 3 ICBM NA WASZYNGTON. LICZBA POCISKÓW: 3.");
+    }
+}
+
+function showMissionModal(isSuccess, title, desc) {
+    const modal = document.getElementById('mission-modal');
+    const box = document.getElementById('mission-modal-box');
+    const titleEl = document.getElementById('mission-status-title');
+    const descEl = document.getElementById('mission-status-desc');
+    
+    titleEl.innerText = title;
+    descEl.innerText = desc;
+    
+    if (isSuccess) {
+        box.style.borderColor = 'var(--green)';
+        box.style.boxShadow = '0 0 30px rgba(0, 255, 65, 0.4)';
+        titleEl.style.color = 'var(--green)';
+        titleEl.style.textShadow = '0 0 10px var(--green)';
+    } else {
+        box.style.borderColor = 'var(--red)';
+        box.style.boxShadow = '0 0 30px rgba(255, 42, 42, 0.4)';
+        titleEl.style.color = 'var(--red)';
+        titleEl.style.textShadow = '0 0 10px var(--red)';
+    }
+    
+    modal.style.display = 'flex';
+}
+
+window.closeMissionModal = function() {
+    document.getElementById('mission-modal').style.display = 'none';
+    window.switchModule('missions');
 }

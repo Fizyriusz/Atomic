@@ -49,6 +49,7 @@
     <div id="module-selector">
         <div class="mod-btn active" data-target="survival">KALKULATOR PRZETRWANIA</div>
         <div class="mod-btn" data-target="war">WAR ROOM (STRATEGIA)</div>
+        <div class="mod-btn" data-target="missions">MISJE I WYZWANIA</div>
     </div>
 
     <!-- ============================================== -->
@@ -158,6 +159,74 @@
             </div>
             
             <button onclick="clearWarMap()" style="width:100%; padding:5px; background:none; border:1px dashed #555; color:#555; cursor:pointer; font-family:var(--font-main); font-size:0.7rem;">RESET</button>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODUŁ 3: MISJE I WYZWANIA (GRYWALIZACJA)        -->
+    <!-- ============================================== -->
+    <div id="module-missions" class="app-module">
+        <div id="missions-container" style="max-width:800px; margin: 40px auto; padding: 20px; background: var(--panel-bg); border: 1px solid var(--border-color); box-shadow: 0 0 20px rgba(0,255,65,0.1); height: calc(100vh - 200px); overflow-y: auto;">
+            <h2 class="glow-text" style="text-align:center; color:var(--blue); text-shadow:0 0 10px var(--blue);">TACTICAL CHALLENGES</h2>
+            <p style="text-align:center; font-size:0.8rem; color:#888; margin-bottom:30px;">Wykonaj misje wojskowe o podwyższonym poziomie trudności.</p>
+            
+            <div style="display:grid; grid-template-columns: 1fr; gap: 20px;" id="missions-list">
+                <!-- Misja 1 -->
+                <div class="mission-card" style="border:1px solid #444; padding:20px; background:rgba(0,0,0,0.5); display:flex; flex-direction:column; justify-content:space-between; transition:0.3s;">
+                    <div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                            <span style="color:var(--green); font-weight:bold; font-size:1rem;">OPERACJA: CICHA WODA</span>
+                            <span style="color:yellow; font-size:0.75rem; border:1px solid yellow; padding:2px 6px;">ŚREDNIA</span>
+                        </div>
+                        <p style="font-size:0.8rem; color:#ccc; line-height:1.4; margin:0 0 15px 0;">
+                            Wrogie miasto (Londyn) posiada system obronny Patriot. Masz tylko 1 okręt SSBN i 2 rakiety SLBM. 
+                            Rozmieść okręt podwodny na oceanie w odległości mniejszej niż 1000 km od Londynu i przeprowadź szybkie uderzenie.
+                        </p>
+                    </div>
+                    <button class="btn-action" style="padding:10px; font-size:0.85rem;" onclick="startMission('m1')">ROZPOCZNIJ OPERACJĘ</button>
+                </div>
+
+                <!-- Misja 2 -->
+                <div class="mission-card" style="border:1px solid #444; padding:20px; background:rgba(0,0,0,0.5); display:flex; flex-direction:column; justify-content:space-between; transition:0.3s;">
+                    <div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                            <span style="color:var(--green); font-weight:bold; font-size:1rem;">OPERACJA: STEALTH SHIELD</span>
+                            <span style="color:lightgreen; font-size:0.75rem; border:1px solid lightgreen; padding:2px 6px;">ŁATWA</span>
+                        </div>
+                        <p style="font-size:0.8rem; color:#ccc; line-height:1.4; margin:0 0 15px 0;">
+                            Baza w Murmańsku jest chroniona przez gęste tarcze przeciwrakietowe (90% przechwycenia dla ICBM). 
+                            Użyj bombowca B-2 Stealth (leci bardzo wolno, lecz omija tarcze), aby zniszczyć cel. Do dyspozycji masz 1 bombowiec.
+                        </p>
+                    </div>
+                    <button class="btn-action" style="padding:10px; font-size:0.85rem;" onclick="startMission('m2')">ROZPOCZNIJ OPERACJĘ</button>
+                </div>
+
+                <!-- Misja 3 -->
+                <div class="mission-card" style="border:1px solid #444; padding:20px; background:rgba(0,0,0,0.5); display:flex; flex-direction:column; justify-content:space-between; transition:0.3s;">
+                    <div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                            <span style="color:var(--green); font-weight:bold; font-size:1rem;">OPERACJA: PRZEŁAMANIE TARCZ</span>
+                            <span style="color:var(--red); font-size:0.75rem; border:1px solid var(--red); padding:2px 6px;">TRUDNA</span>
+                        </div>
+                        <p style="font-size:0.8rem; color:#ccc; line-height:1.4; margin:0 0 15px 0;">
+                            Centrum Waszyngtonu jest zaciekle bronione przez dwie baterie Patriot o szerokim zasięgu (800km). 
+                            Twoim zadaniem jest wystrzelenie masowej salwy 3 rakiet ICBM z odległych silosów w Rosji, licząc na to, że przynajmniej jedna przebije się przez obronę i trafi w cel.
+                        </p>
+                    </div>
+                    <button class="btn-action" style="padding:10px; font-size:0.85rem;" onclick="startMission('m3')">ROZPOCZNIJ OPERACJĘ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MISSION STATUS MODAL -->
+    <div id="mission-modal" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:11000; display:none; justify-content:center; align-items:center;">
+        <div class="modal-content" style="border: 2px solid var(--green); box-shadow: 0 0 20px rgba(0,255,65,0.4);" id="mission-modal-box">
+            <h1 id="mission-status-title" style="color:var(--green); text-shadow:0 0 10px var(--green); margin:0 0 10px 0;">OPERACJA POWIODŁA SIĘ</h1>
+            <p id="mission-status-desc" style="font-size:0.9rem; margin-bottom:20px; line-height:1.5; text-align:center;">
+                Wrogi cel został zniszczony. Udało Ci się omijać obronę powietrzną przeciwnika.
+            </p>
+            <button class="btn-action" onclick="closeMissionModal()" style="width:auto; padding:10px 30px;">POWRÓT DO OPERACJI</button>
         </div>
     </div>
 

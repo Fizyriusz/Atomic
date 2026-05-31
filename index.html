@@ -3,324 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nuclear Commander v7.0 - Global War Room</title>
+    <title>Nuclear Commander - Symulator Zniszczeń</title>
+    
+    <!-- Zewnętrzne CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        :root { --green: #00ff41; --red: #ff3333; --blue: #3399ff; --bg: #0a0a0c; }
-        body { margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace; background: var(--bg); color: var(--green); overflow: hidden; }
-        #map { height: 100vh; width: 100vw; background: #000; }
-
-        /* Główne Menu Trybów */
-        #mode-selector {
-            position: absolute; top: 0; left: 0; width: 100vw; z-index: 2000;
-            display: flex; background: rgba(0,0,0,0.9); border-bottom: 1px solid #333;
-        }
-        .mode-btn {
-            flex: 1; padding: 12px; text-align: center; cursor: pointer; 
-            font-weight: bold; font-size: 0.8rem; letter-spacing: 1px; transition: 0.3s;
-        }
-        .mode-btn.active { background: var(--green); color: black; }
-        .mode-btn:not(.active) { color: #555; }
-        #war-mode-indicator { background: var(--red) !important; color: white !important; display: none; }
-        #war-mode-indicator.active { display: block; flex: 1; }
-
-        /* Panel UI */
-        #ui {
-            position: absolute; top: 60px; left: 10px; z-index: 1000;
-            background: rgba(10, 10, 12, 0.95); border: 2px solid #333;
-            padding: 15px; border-radius: 4px; width: 280px;
-            max-height: 85vh; overflow-y: auto; box-shadow: 0 0 30px rgba(0,0,0,1);
-        }
-        
-        h2 { margin: 0 0 10px; font-size: 1rem; color: var(--red); text-align: center; border-bottom: 1px solid #333; padding-bottom: 5px; }
-        .label { font-size: 0.7rem; color: #888; text-transform: uppercase; margin: 10px 0 4px; display: block; }
-        
-        select, input, button {
-            width: 100%; background: #111; border: 1px solid #444; color: var(--green);
-            padding: 8px; margin-bottom: 5px; border-radius: 4px; box-sizing: border-box;
-        }
-
-        .compass-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
-        .compass-btn { padding: 8px 0; font-size: 0.7rem; background: #222; cursor: pointer; }
-        .compass-btn.active { background: var(--green); color: black; }
-        
-        .btn-launch { background: var(--red); color: white; font-size: 1.1rem; font-weight: bold; border: none; margin-top: 10px; cursor: pointer; padding: 12px; }
-        .btn-launch:disabled { background: #333; color: #666; cursor: not-allowed; }
-
-        #log { font-size: 0.65rem; background: #000; padding: 8px; border: 1px solid #222; margin-top: 10px; height: 120px; overflow-y: auto; border-left: 3px solid var(--green); }
-        .war-status { color: var(--red); font-weight: bold; font-size: 0.7rem; border: 1px solid var(--red); padding: 5px; margin: 10px 0; text-align: center; }
-
-        /* Animacja pocisku */
-        .missile {
-            position: absolute; width: 20px; height: 20px; 
-            background: red; border-radius: 50%; z-index: 3000;
-            box-shadow: 0 0 15px red; pointer-events: none;
-        }
-
-        /* Flash efekt */
-        .flash { animation: flash-anim 0.3s forwards; }
-        @keyframes flash-anim { 0% { filter: brightness(10); } 100% { filter: brightness(1); } }
-    </style>
+    <!-- Nasze CSS -->
+    <link rel="stylesheet" href="style.css" />
+    
+    <!-- Biblioteki JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 </head>
 <body>
 
-<div id="mode-selector">
-    <div id="btn-tactical" class="mode-btn active" onclick="switchMode('tactical')">SYSTEM TAKTYCZNY</div>
-    <div id="btn-war" class="mode-btn" onclick="switchMode('war')">TRYB WOJENNY (ALPHA)</div>
-</div>
-
-<div id="ui">
-    <h2 id="ui-title">TACTICAL UNIT</h2>
-    
-    <div id="war-controls" style="display:none;">
-        <div class="war-status">STATUS: OCZEKIWANIE NA START</div>
-        <button class="btn-launch" style="background:var(--blue); animation:none;" id="btn-set-base" onclick="setSelectionMode('base')">1. USTAW BAZĘ</button>
-        <button class="btn-launch" style="background:var(--red); animation:none;" id="btn-set-target" onclick="setSelectionMode('target')">2. USTAW CEL</button>
-        <div id="war-stats" style="font-size:0.7rem; margin-top:10px; color:#aaa;"></div>
-    </div>
-
-    <div id="common-controls">
-        <span class="label">Głowica:</span>
-        <select id="bomb-preset" onchange="syncPreset()">
-            <option value="15" selected>Little Boy (15 kt)</option>
-            <option value="350">W78 Minuteman (350 kt)</option>
-            <option value="50000">Tsar Bomba (50 Mt)</option>
-            <option value="custom">-- WŁASNA --</option>
-        </select>
-        <input type="number" id="custom-yield" value="15">
-
-        <span class="label">Kierunek Wiatru:</span>
-        <div class="compass-grid">
-            <button class="compass-btn" onclick="setWind(315, this)">NW</button>
-            <button class="compass-btn" onclick="setWind(0, this)">N</button>
-            <button class="compass-btn" onclick="setWind(45, this)">NE</button>
-            <button class="compass-btn active" onclick="setWind(90, this)">E</button>
-            <button class="compass-btn" onclick="setWind(180, this)">S</button>
-            <button class="compass-btn" onclick="setWind(270, this)">W</button>
+    <!-- DISCLAIMER OVERLAY -->
+    <div id="disclaimer-overlay">
+        <div class="modal-content">
+            <h1>Projekt Edukacyjno-Naukowy</h1>
+            <p>
+                Niniejsza aplikacja jest interaktywną wizualizacją opartą na ogólnodostępnych, jawnych modelach matematycznych i fizycznych (dotyczących rozchodzenia się fal uderzeniowych i promieniowania). 
+                Projekt ma na celu wyłącznie edukację w zakresie skutków użycia broni masowego rażenia oraz uświadamianie skali globalnego zagrożenia.
+            </p>
+            <p>
+                Autor w żaden sposób nie propaguje przemocy, nie nawołuje do działań wojennych, nie reprezentuje żadnej ze stron jakichkolwiek konfliktów geopolitycznych, ani nie instytuuje instruktażu militarnego. 
+                Użytkownik korzysta z symulatora na własną odpowiedzialność.
+            </p>
+            <button id="btn-accept-disclaimer" class="btn-accept">Zrozumiałem</button>
         </div>
     </div>
 
-    <button id="launch-btn" class="btn-launch" onclick="launchAction()">ODPALAMY (0)</button>
-    <button style="font-size:0.7rem; margin-top:5px;" onclick="toggleMap()">Satelita/Mapa</button>
-    
-    <div id="log">ZALOGOWANO DO SYSTEMU...</div>
-    <button class="btn-launch" style="background:#222; font-size:0.7rem;" onclick="clearAll()">RESET</button>
-</div>
+    <!-- GLOBAL HEADER (DOOMSDAY CLOCK) -->
+    <div id="global-header">
+        <div style="font-weight: bold; color: var(--green);">SYS: <span class="blink">ONLINE</span></div>
+        <div id="doomsday-clock">
+            <span>DEFCON 1 | ZDETONOWANO:</span>
+            <span id="total-megatons">0</span>
+            <span>MT</span>
+        </div>
+    </div>
 
-<div id="map"></div>
+    <!-- MODULE SELECTOR -->
+    <div id="module-selector">
+        <div class="mod-btn active" data-target="survival">KALKULATOR PRZETRWANIA</div>
+        <div class="mod-btn" data-target="war">WAR ROOM (STRATEGIA)</div>
+    </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<script>
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([52, 20], 5);
-    const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-    const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
-
-    let currentMode = 'tactical'; // 'tactical' lub 'war'
-    let selectionMode = 'target'; // 'base' lub 'target'
-    let currentWind = 90;
-    let pendingTargets = []; // Cele w trybie taktycznym
-    let warBase = null;      // Baza w trybie wojennym
-    let warTarget = null;    // Cel w trybie wojennym
-    let activeLayers = [];
-
-    // Przełączanie Trybów
-    function switchMode(mode) {
-        currentMode = mode;
-        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById('btn-' + mode).classList.add('active');
-        
-        if(mode === 'war') {
-            document.getElementById('ui-title').innerText = "WAR ROOM v7";
-            document.getElementById('war-controls').style.display = 'block';
-            document.getElementById('launch-btn').innerText = "INICJUJ ATAK BALISTYCZNY";
-            document.getElementById('launch-btn').disabled = true;
-            logMessage("PRZEŁĄCZONO W TRYB WOJENNY.");
-        } else {
-            document.getElementById('ui-title').innerText = "TACTICAL UNIT";
-            document.getElementById('war-controls').style.display = 'none';
-            updateTacticalUI();
-            logMessage("PRZEŁĄCZONO W TRYB TAKTYCZNY.");
-        }
-        clearAll();
-    }
-
-    function setSelectionMode(m) {
-        selectionMode = m;
-        logMessage(`WYBIERZ ${m === 'base' ? 'BAZĘ WYPADOWĄ' : 'CEL ATAKU'} NA MAPIE.`);
-    }
-
-    map.on('click', function(e) {
-        if(currentMode === 'tactical') {
-            handleTacticalClick(e.latlng);
-        } else {
-            handleWarClick(e.latlng);
-        }
-    });
-
-    // LOGIKA TAKTYCZNA (Stara)
-    function handleTacticalClick(latlng) {
-        const kt = parseFloat(document.getElementById('custom-yield').value);
-        const marker = L.circleMarker(latlng, { radius: 8, color: 'red' }).addTo(map);
-        pendingTargets.push({ latlng, kt, wind: currentWind, marker });
-        updateTacticalUI();
-    }
-
-    function updateTacticalUI() {
-        const btn = document.getElementById('launch-btn');
-        btn.innerText = `ODPALAMY (${pendingTargets.length})`;
-        btn.disabled = pendingTargets.length === 0;
-    }
-
-    // LOGIKA WOJENNA (Nowa)
-    function handleWarClick(latlng) {
-        if(selectionMode === 'base') {
-            if(warBase) map.removeLayer(warBase.marker);
-            const m = L.marker(latlng, { icon: L.divIcon({ className:'', html:'<div style="color:#3399ff; font-size:24px;">⚓</div>' }) }).addTo(map);
-            warBase = { latlng, marker: m };
-            selectionMode = 'target';
-        } else {
-            if(warTarget) map.removeLayer(warTarget.marker);
-            const m = L.marker(latlng, { icon: L.divIcon({ className:'', html:'<div style="color:#ff3333; font-size:24px;">🎯</div>' }) }).addTo(map);
-            warTarget = { latlng, marker: m };
-        }
-        updateWarStats();
-    }
-
-    function updateWarStats() {
-        if(warBase && warTarget) {
-            const dist = (map.distance(warBase.latlng, warTarget.latlng) / 1000).toFixed(0);
-            // Prędkość ICBM: Mach 20 (~24,000 km/h) -> 400 km/min
-            const speedKmh = 24000;
-            const timeMin = (dist / (speedKmh / 60)).toFixed(1);
+    <!-- ============================================== -->
+    <!-- MODUŁ 1: KALKULATOR PRZETRWANIA (VIRAL)        -->
+    <!-- ============================================== -->
+    <div id="module-survival" class="app-module active">
+        <div id="survival-ui">
+            <h2 class="glow-text">TEST PRZETRWANIA</h2>
+            <p style="font-size:0.8rem; color:#888; margin-bottom:20px;">Sprawdź, czy Twój schron wytrzyma falę uderzeniową.</p>
             
-            document.getElementById('war-stats').innerHTML = `
-                DYSTANS: ${dist} KM<br>
-                PRĘDKOŚĆ: MACH 20<br>
-                ETA: ${timeMin} MIN
-            `;
-            document.getElementById('launch-btn').disabled = false;
-        }
-    }
+            <div class="input-group">
+                <label>Wprowadź swoje miasto (Cel):</label>
+                <input type="text" id="survival-city" placeholder="np. Warszawa, Krakowska 5">
+            </div>
 
-    async function launchAction() {
-        if(currentMode === 'tactical') {
-            const targets = [...pendingTargets];
-            pendingTargets = [];
-            updateTacticalUI();
-            for(let t of targets) {
-                map.removeLayer(t.marker);
-                await animateDrop(t.latlng, t);
-            }
-        } else {
-            const kt = parseFloat(document.getElementById('custom-yield').value);
-            await animateMissile(warBase.latlng, warTarget.latlng, { kt, wind: currentWind });
-        }
-    }
+            <div class="input-group">
+                <label>Wybierz głowicę nuklearną:</label>
+                <select id="survival-bomb">
+                    <option value="15">Little Boy (15 kT - Hiroszima)</option>
+                    <option value="350" selected>W78 Minuteman III (350 kT)</option>
+                    <option value="800">SS-25 Sickle (800 kT)</option>
+                    <option value="50000">Tsar Bomba (50,000 kT)</option>
+                </select>
+            </div>
 
-    // Animacja spadania (Taktyczna)
-    function animateDrop(latlng, data) {
-        return new Promise(res => {
-            const point = map.latLngToContainerPoint(latlng);
-            const div = document.createElement('div');
-            div.style.position = 'absolute';
-            div.style.left = (point.x - 10)+'px';
-            div.style.top = '-50px';
-            div.style.transition = 'top 0.6s ease-in';
-            div.innerHTML = "🚀";
-            div.style.transform = "rotate(180deg)";
-            div.style.zIndex = "3000";
-            document.body.appendChild(div);
-            setTimeout(() => div.style.top = point.y+'px', 10);
-            setTimeout(() => {
-                document.body.removeChild(div);
-                detonate(latlng, data);
-                res();
-            }, 610);
-        });
-    }
+            <button id="btn-check-survival" class="btn-action">PRZEPROWADŹ SYMULACJĘ</button>
 
-    // Animacja lotu poziomego (Wojenna)
-    function animateMissile(start, end, data) {
-        return new Promise(res => {
-            const sP = map.latLngToContainerPoint(start);
-            const eP = map.latLngToContainerPoint(end);
-            const div = document.createElement('div');
-            div.className = 'missile';
-            div.style.left = sP.x + 'px'; div.style.top = sP.y + 'px';
-            document.body.appendChild(div);
+            <div id="survival-report">
+                <div id="survival-report-text"></div>
+            </div>
+            
+            <button id="btn-share-report" class="btn-share" style="display:none;">[ POBIERZ CERTYFIKAT WYNIKU ]</button>
+        </div>
+    </div>
 
-            // Prosta animacja przesuwania
-            const startTime = performance.now();
-            const duration = 1500; // 1.5 sekundy lotu wizualnego
-
-            function step(now) {
-                const progress = (now - startTime) / duration;
-                if(progress < 1) {
-                    const curX = sP.x + (eP.x - sP.x) * progress;
-                    const curY = sP.y + (eP.y - sP.y) * progress;
-                    div.style.left = curX + 'px';
-                    div.style.top = curY + 'px';
-                    requestAnimationFrame(step);
-                } else {
-                    document.body.removeChild(div);
-                    detonate(end, data);
-                    res();
-                }
-            }
-            requestAnimationFrame(step);
-        });
-    }
-
-    function detonate(latlng, data) {
-        document.getElementById('map').classList.add('flash');
-        setTimeout(() => document.getElementById('map').classList.remove('flash'), 300);
+    <!-- ============================================== -->
+    <!-- MODUŁ 2: WAR ROOM (MAPA TAKTYCZNA)             -->
+    <!-- ============================================== -->
+    <div id="module-war" class="app-module">
+        <div id="map-container"></div>
         
-        const sB = Math.pow(data.kt, 1/3);
-        const zones = [
-            { r: sB * 3300, col: '#555', label: 'Podmuch' },
-            { r: sB * 1100, col: '#f40', label: 'Zniszczenia' },
-            { r: sB * 150, col: '#ff0', label: 'Kula ognia' }
-        ];
+        <div id="war-panel">
+            <h2 class="war-title glow-text-red">WDS - GLOBAL CONTROL</h2>
+            
+            <div class="war-section">
+                <div class="war-title">1. UZBROJENIE (TRIADA)</div>
+                <div class="triad-grid">
+                    <div class="triad-btn active" data-type="icbm" onclick="selectCarrier(this)">Silos ICBM</div>
+                    <div class="triad-btn" data-type="sub" onclick="selectCarrier(this)">Okręt SSBN</div>
+                    <div class="triad-btn" data-type="bomber" onclick="selectCarrier(this)">B-2 Stealth</div>
+                </div>
+                <select id="war-yield" style="width:100%; background:#111; color:var(--green); padding:5px; border:1px solid #444;">
+                    <option value="350">Głowica Taktyczna (350kT)</option>
+                    <option value="50000">Tsar Bomba (50MT)</option>
+                </select>
+            </div>
 
-        zones.forEach(z => {
-            const c = L.circle(latlng, { radius: z.r, color: z.col, fillOpacity: 0.3 }).addTo(map);
-            activeLayers.push(c);
-        });
-        logMessage(`DETONACJA: ${data.kt}KT`);
-    }
+            <div class="war-section">
+                <div class="war-title">2. KORDYNATY ZNISZCZENIA</div>
+                <button class="btn-action" style="padding:10px; margin-bottom:5px;" onclick="setWarMode('base')">USTAW BAZĘ ⚓</button>
+                <button class="btn-action" style="padding:10px;" onclick="setWarMode('target')">USTAW CEL 🎯</button>
+            </div>
 
-    function logMessage(msg) {
-        const l = document.getElementById('log');
-        l.innerHTML = `> ${msg}<br>` + l.innerHTML;
-    }
+            <div class="war-section">
+                <div id="war-stats" class="status-box">OCZEKIWANIE NA KORDYNATY...</div>
+                <button id="btn-war-launch" class="btn-action glow-text-red" style="border-color:var(--red); color:var(--red);" disabled onclick="launchWarAction()">ODPAL</button>
+            </div>
 
-    function clearAll() {
-        activeLayers.forEach(l => map.removeLayer(l));
-        if(warBase) map.removeLayer(warBase.marker);
-        if(warTarget) map.removeLayer(warTarget.marker);
-        pendingTargets.forEach(t => map.removeLayer(t.marker));
-        activeLayers = []; warBase = null; warTarget = null; pendingTargets = [];
-        document.getElementById('launch-btn').disabled = true;
-        document.getElementById('war-stats').innerHTML = "";
-        logMessage("SYSTEM OCZYSZCZONY.");
-    }
+            <div id="war-log" class="status-box" style="height: 60px; overflow-y: auto; font-family: monospace;">
+                > SYSTEM GOTOWY.
+            </div>
+            
+            <button onclick="clearWarMap()" style="width:100%; padding:5px; background:none; border:1px dashed #555; color:#555; cursor:pointer;">RESET</button>
+        </div>
+    </div>
 
-    function toggleMap() {
-        if(map.hasLayer(satLayer)) { map.removeLayer(satLayer); map.addLayer(darkLayer); }
-        else { map.removeLayer(darkLayer); map.addLayer(satLayer); }
-    }
+    <!-- Nasze skrypty logiczne -->
+    <script type="module" src="app.js"></script>
+    <script src="survival.js"></script>
+    <script src="war_room.js"></script>
 
-    function syncPreset() {
-        const v = document.getElementById('bomb-preset').value;
-        if(v !== 'custom') document.getElementById('custom-yield').value = v;
-    }
-
-    function setWind(d, b) {
-        currentWind = d;
-        document.querySelectorAll('.compass-btn').forEach(btn => btn.classList.remove('active'));
-        b.classList.add('active');
-    }
-</script>
 </body>
 </html>

@@ -34,7 +34,10 @@
 
     <!-- GLOBAL HEADER (DOOMSDAY CLOCK) -->
     <div id="global-header">
-        <div style="font-weight: bold; color: var(--green);">SYS: <span class="blink">ONLINE</span></div>
+        <div style="font-weight: bold; color: var(--green); display: flex; align-items: center; gap: 15px;">
+            <span>SYS: <span class="blink">ONLINE</span></span>
+            <button id="btn-show-disclaimer" style="background: none; border: 1px dashed var(--border-color); color: var(--green); font-family: var(--font-main); font-size: 0.75rem; cursor: pointer; padding: 2px 8px; transition: 0.2s;">[ O PROJEKCIE ]</button>
+        </div>
         <div id="doomsday-clock">
             <span>DEFCON 1 | ZDETONOWANO:</span>
             <span id="total-megatons">0</span>
@@ -91,34 +94,70 @@
             <h2 class="war-title glow-text-red">WDS - GLOBAL CONTROL</h2>
             
             <div class="war-section">
-                <div class="war-title">1. UZBROJENIE (TRIADA)</div>
+                <div class="war-title">1. UZBROJENIE & OBRONA</div>
                 <div class="triad-grid">
                     <div class="triad-btn active" data-type="icbm" onclick="selectCarrier(this)">Silos ICBM</div>
                     <div class="triad-btn" data-type="sub" onclick="selectCarrier(this)">Okręt SSBN</div>
                     <div class="triad-btn" data-type="bomber" onclick="selectCarrier(this)">B-2 Stealth</div>
+                    <div class="triad-btn" data-type="patriot" onclick="selectCarrier(this)">Tarcza Patriot</div>
                 </div>
-                <select id="war-yield" style="width:100%; background:#111; color:var(--green); padding:5px; border:1px solid #444;">
-                    <option value="350">Głowica Taktyczna (350kT)</option>
-                    <option value="50000">Tsar Bomba (50MT)</option>
+                <select id="war-yield" style="width:100%; background:#111; color:var(--green); padding:5px; border:1px solid #444; margin-top:5px;">
+                    <option value="15">Little Boy (15 kT)</option>
+                    <option value="350" selected>Głowica Taktyczna (350 kT)</option>
+                    <option value="800">Głowica Strategiczna (800 kT)</option>
+                    <option value="50000">Tsar Bomba (50 MT)</option>
                 </select>
             </div>
 
             <div class="war-section">
-                <div class="war-title">2. KORDYNATY ZNISZCZENIA</div>
-                <button class="btn-action" style="padding:10px; margin-bottom:5px;" onclick="setWarMode('base')">USTAW BAZĘ ⚓</button>
-                <button class="btn-action" style="padding:10px;" onclick="setWarMode('target')">USTAW CEL 🎯</button>
+                <div class="war-title">2. PARAMETRY DETONACJI</div>
+                <select id="war-height" style="width:100%; background:#111; color:var(--green); padding:5px; border:1px solid #444; margin-bottom:5px;">
+                    <option value="airburst" selected>Wybuch w powietrzu (Airburst)</option>
+                    <option value="surface">Wybuch naziemny (Surface)</option>
+                </select>
+                <select id="war-wind-dir" style="width:100%; background:#111; color:var(--green); padding:5px; border:1px solid #444; margin-bottom:5px;">
+                    <option value="90" selected>Kierunek wiatru: Wschód (E)</option>
+                    <option value="180">Kierunek wiatru: Południe (S)</option>
+                    <option value="270">Kierunek wiatru: Zachód (W)</option>
+                    <option value="0">Kierunek wiatru: Północ (N)</option>
+                    <option value="45">Kierunek wiatru: Północny-Wschód (NE)</option>
+                    <option value="135">Kierunek wiatru: Południowy-Wschód (SE)</option>
+                    <option value="225">Kierunek wiatru: Południowy-Zachód (SW)</option>
+                    <option value="315">Kierunek wiatru: Północny-Zachód (NW)</option>
+                </select>
+                <div style="font-size:0.7rem; color:#888; display:flex; justify-content:space-between; margin-top:5px;">
+                    <span>Prędkość wiatru:</span>
+                    <span id="wind-speed-val">50 km/h</span>
+                </div>
+                <input type="range" id="wind-speed" min="10" max="150" value="50" style="width:100%; margin-top:5px;" oninput="document.getElementById('wind-speed-val').innerText = this.value + ' km/h'">
             </div>
 
             <div class="war-section">
-                <div id="war-stats" class="status-box">OCZEKIWANIE NA KORDYNATY...</div>
+                <div class="war-title">3. SCENARIUSZE</div>
+                <select id="war-scenario" onchange="loadScenario(this.value)" style="width:100%; background:#111; color:var(--green); padding:5px; border:1px solid #444;">
+                    <option value="none" selected>-- Wybierz Scenariusz --</option>
+                    <option value="cuba">Kryzys Kubański (1962)</option>
+                    <option value="coldwar">Zimna Wojna (Masowa Salwa)</option>
+                    <option value="skynet">Bunt Maszyn (Skynet)</option>
+                </select>
+            </div>
+
+            <div class="war-section">
+                <div class="war-title">4. KONTROLA STRZAŁU</div>
+                <button class="btn-action" style="padding:10px; margin-bottom:5px; font-size:0.8rem;" onclick="setWarMode('base')">USTAW START / TARCZĘ ⚓</button>
+                <button id="btn-war-target" class="btn-action" style="padding:10px; font-size:0.8rem;" onclick="setWarMode('target')">USTAW CEL ATAKU 🎯</button>
+            </div>
+
+            <div class="war-section">
+                <div id="war-stats" class="status-box">OCZEKIWANIE NA KOORDYNATY...</div>
                 <button id="btn-war-launch" class="btn-action glow-text-red" style="border-color:var(--red); color:var(--red);" disabled onclick="launchWarAction()">ODPAL</button>
             </div>
 
-            <div id="war-log" class="status-box" style="height: 60px; overflow-y: auto; font-family: monospace;">
-                > SYSTEM GOTOWY.
+            <div id="war-log" class="status-box" style="height: 60px; overflow-y: auto; font-family: monospace; font-size:0.65rem;">
+                > SYSTEM READY.
             </div>
             
-            <button onclick="clearWarMap()" style="width:100%; padding:5px; background:none; border:1px dashed #555; color:#555; cursor:pointer;">RESET</button>
+            <button onclick="clearWarMap()" style="width:100%; padding:5px; background:none; border:1px dashed #555; color:#555; cursor:pointer; font-family:var(--font-main); font-size:0.7rem;">RESET</button>
         </div>
     </div>
 

@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Obsługa Disclaimera
     const disclaimer = document.getElementById('disclaimer-overlay');
     const btnAccept = document.getElementById('btn-accept-disclaimer');
+    const btnShow = document.getElementById('btn-show-disclaimer');
     
     if (localStorage.getItem('atomic_disclaimer_accepted') === 'true') {
         disclaimer.style.display = 'none';
@@ -31,6 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
         disclaimer.style.display = 'none';
         // Inicjalizacja domyślnego modułu
         switchModule('survival');
+    });
+
+    btnShow.addEventListener('click', () => {
+        disclaimer.style.display = 'flex';
     });
 
     // 2. Przełączanie Modułów

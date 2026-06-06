@@ -93,6 +93,19 @@
             <h2 class="war-title glow-text-red">WDS - GLOBAL CONTROL</h2>
             
             <div class="war-section">
+                <div class="war-title" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>POZIOM ZAGROŻENIA</span>
+                    <select id="defcon-selector" style="background:#111; color:var(--red); border:1px solid var(--red); padding:5px;" onchange="changeDefcon(this.value)">
+                        <option value="5" selected>DEFCON 5 (Normalna gotowość)</option>
+                        <option value="4">DEFCON 4 (Podwyższony nasłuch)</option>
+                        <option value="3">DEFCON 3 (Gotowość operacyjna)</option>
+                        <option value="2">DEFCON 2 (Krok od wojny)</option>
+                        <option value="1">DEFCON 1 (WOJNA NUKLEARNA)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="war-section">
                 <div class="war-title">1. UZBROJENIE & OBRONA</div>
                 <div class="triad-grid">
                     <div class="triad-btn active" data-type="icbm" onclick="selectCarrier(this)">Silos ICBM</div>
@@ -109,24 +122,12 @@
                     <option value="airburst" selected>Wybuch w powietrzu (Airburst)</option>
                     <option value="surface">Wybuch naziemny (Surface)</option>
                 </select>
-                <select id="war-wind-dir" style="width:100%; background:#111; color:var(--green); padding:5px; border:1px solid #444; margin-bottom:5px;">
-                    <option value="90" selected>Kierunek wiatru: Wschód (E)</option>
-                    <option value="180">Kierunek wiatru: Południe (S)</option>
-                    <option value="270">Kierunek wiatru: Zachód (W)</option>
-                    <option value="0">Kierunek wiatru: Północ (N)</option>
-                    <option value="45">Kierunek wiatru: Północny-Wschód (NE)</option>
-                    <option value="135">Kierunek wiatru: Południowy-Wschód (SE)</option>
-                    <option value="225">Kierunek wiatru: Południowy-Zachód (SW)</option>
-                    <option value="315">Kierunek wiatru: Północny-Zachód (NW)</option>
-                </select>
-                <div style="font-size:0.7rem; color:#888; display:flex; justify-content:space-between; margin-top:5px;">
-                    <span>Prędkość wiatru:</span>
-                    <span id="wind-speed-val">50 km/h</span>
+                <div style="font-size:0.7rem; color:#888; margin-top:5px; text-align:center;">
+                    (POGODA POBIERANA Z SATELIT METEO)
                 </div>
-                <input type="range" id="wind-speed" min="10" max="150" value="50" style="width:100%; margin-top:5px;" oninput="document.getElementById('wind-speed-val').innerText = this.value + ' km/h'">
             </div>
 
-            <div class="war-section">
+            <div class="war-section" style="display:none;">
                 <div class="war-title">3. SCENARIUSZE</div>
                 <select id="war-scenario" onchange="loadScenario(this.value)" style="width:100%; background:#111; color:var(--green); padding:5px; border:1px solid #444;">
                     <option value="none" selected>-- Wybierz Scenariusz --</option>
@@ -152,6 +153,15 @@
             </div>
             
             <button onclick="clearWarMap()" style="width:100%; padding:5px; background:none; border:1px dashed #555; color:#555; cursor:pointer; font-family:var(--font-main); font-size:0.7rem;">RESET</button>
+            
+            <!-- QUEST TRACKER -->
+            <div id="quest-tracker">
+                <div class="quest-title" id="quest-title">CELE OPERACYJNE</div>
+                <div id="quest-list"></div>
+                <button class="btn-action" style="margin-top:10px; width:100%; font-size:0.8rem;" id="btn-submit-quest" onclick="submitQuest()">ZATWIERDŹ ROZKAZ</button>
+                <button class="btn-action" style="margin-top:5px; width:100%; border-color:#555; color:#aaa; font-size:0.8rem;" onclick="abortCampaign()">PRZERWIJ KAMPANIĘ</button>
+            </div>
+
         </div>
     </div>
 
@@ -208,6 +218,23 @@
                     </div>
                     <button class="btn-action" style="padding:10px; font-size:0.85rem;" onclick="startMission('m3')">ROZPOCZNIJ OPERACJĘ</button>
                 </div>
+            <!-- KAMPANIE FABULARNE -->
+            <h2 class="glow-text-red" style="text-align:center; margin-top:40px; font-size:1.5rem;">KAMPANIE (TECHNO-THRILLER)</h2>
+            <p style="text-align:center; font-size:0.8rem; color:#888; margin-bottom:20px;">Odegraj kluczowe momenty historii. System oceni Twoją precyzję geopolityczną.</p>
+            
+            <div id="campaign-crt-container" style="display:none;">
+                <div class="crt-tv-container">
+                    <div class="crt-tv-title" id="crt-tv-title">TYTUŁ KAMPANII</div>
+                    <div class="crt-tv-screen" id="crt-tv-screen">
+                        <!-- Tekst z typing effect -->
+                    </div>
+                </div>
+                <button class="btn-action" style="width:100%; margin-bottom:20px; font-size:1rem;" id="btn-start-chapter" onclick="goToWarRoomForCampaign()">PRZEJDŹ DO WAR ROOM</button>
+                <button class="btn-action" style="width:100%; border-color:#555; color:#555;" onclick="closeCampaignCrt()">WSTECZ</button>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;" id="campaigns-list">
+                <!-- Kampanie generowane dynamicznie -->
             </div>
         </div>
     </div>
@@ -275,6 +302,7 @@
 
     <!-- Nasze skrypty logiczne -->
     <script src="db_arsenal.js"></script>
+    <script src="campaigns.js"></script>
     <script type="module" src="app.js"></script>
     <script src="survival.js"></script>
     <script src="war_room.js"></script>

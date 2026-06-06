@@ -82,6 +82,7 @@ function initWarArsenalUI() {
             `;
             el.onclick = () => {
                 activeWarYield = item.yield_kt;
+                if (window.notifyCampaignAction) window.notifyCampaignAction('yield_change', activeWarYield);
                 renderItems(activeCat);
             };
             itemsContainer.appendChild(el);
@@ -106,6 +107,11 @@ function initWarArsenalUI() {
     container.appendChild(tabsContainer);
     container.appendChild(itemsContainer);
     renderItems(activeCat);
+}
+
+window.changeDefcon = function(level) {
+    logWarMsg(`UWAGA: POZIOM ZAGROŻENIA ZMIENIONY NA DEFCON ${level}`);
+    if (window.notifyCampaignAction) window.notifyCampaignAction('defcon_change', parseInt(level));
 }
 
 window.setWarMode = function(mode) {
@@ -190,6 +196,7 @@ function handleMapClick(e) {
             const m = L.marker(latlng, { icon: L.divIcon({ className:'', html:'<div style="font-size:24px; text-shadow:0 0 10px var(--red);">🎯</div>' }) }).addTo(map);
             warTarget = { latlng, marker: m };
             logWarMsg("USTAWIONO CEL. GOTÓW DO STRZAŁU.");
+            if (window.notifyCampaignAction) window.notifyCampaignAction('map_click', { lat: latlng.lat, lng: latlng.lng });
         }
         updateWarStats();
     }
@@ -247,8 +254,24 @@ window.launchWarAction = async function() {
     const yieldKt = activeWarYield;
     document.getElementById('btn-war-launch').disabled = true;
     logWarMsg(`ODPALENIE GŁOWICY: ${yieldKt}kT...`);
+
+    let windSpeed = 0;
+    let windDir = 0;
+    try {
+        const targetLatLng = warTarget.latlng;
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${targetLatLng.lat}&longitude=${targetLatLng.lng}&current_weather=true`;
+        const wRes = await fetch(weatherUrl);
+        const wData = await wRes.json();
+        windSpeed = wData.current_weather.windspeed;
+        windDir = wData.current_weather.winddirection;
+        logWarMsg(`POGODA Z SATELITY: WIATR ${windSpeed} km/h (KIERUNEK ${windDir}°)`);
+    } catch (e) {
+        logWarMsg("BŁĄD SONDY POGODOWEJ.");
+    }
     
-    const result = await animateMissile(warBase.latlng, warTarget.latlng, { kt: yieldKt, carrier: activeCarrier });
+    if (window.notifyCampaignAction) window.notifyCampaignAction('launch', { lat: warTarget.latlng.lat, lng: warTarget.latlng.lng, yield: yieldKt });
+    
+    const result = await animateMissile(warBase.latlng, warTarget.latlng, { kt: yieldKt, carrier: activeCarrier, windSpeed, windDir });
     
     // Sprawdzanie warunków wygranej / przegranej w misjach
     if (activeMissionId) {
@@ -458,8 +481,8 @@ function detonate(latlng, data) {
     });
     
     if (height === 'surface') {
-        const windSpeed = parseFloat(document.getElementById('wind-speed').value);
-        const windDir = parseFloat(document.getElementById('war-wind-dir').value);
+        const windSpeed = data.windSpeed || 0;
+        const windDir = data.windDir || 0;
         
         const rad = windDir * Math.PI / 180;
         const L_km = Math.pow(data.kt, 0.4) * windSpeed * 0.1;

@@ -53,11 +53,11 @@ body::after {
 }
 
 .glow-text {
-    text-shadow: 0 0 5px var(--green), 0 0 10px var(--green);
+    text-shadow: 0 0 3px var(--green), 0 0 5px var(--green); /* Zmniejszony glow dla lepszej czytelności */
 }
 .glow-text-red {
     color: var(--red);
-    text-shadow: 0 0 5px var(--red), 0 0 10px var(--red);
+    text-shadow: 0 0 3px var(--red), 0 0 5px var(--red);
 }
 
 /* DISCLAIMER MODAL */
@@ -567,3 +567,108 @@ body::after {
     .charts-grid { grid-template-columns: 1fr; }
     .crt-radar-container { flex-direction: column; }
 }
+
+/* ---------------------------------------------------- */
+/* FAZA 6: KAMPANIE I CZYTELNOŚĆ                        */
+/* ---------------------------------------------------- */
+.campaign-card {
+    border: 1px solid #444; 
+    padding: 20px; 
+    background: rgba(0,0,0,0.7); 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: space-between; 
+    transition: 0.3s;
+}
+.campaign-card:hover {
+    border-color: var(--green);
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+}
+
+/* TELEWIZOR CRT DLA NARRACJI */
+.crt-tv-container {
+    background: #111;
+    border: 2px solid #333;
+    border-radius: 10px;
+    padding: 20px;
+    position: relative;
+    box-shadow: inset 0 0 50px rgba(0,0,0,1);
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+.crt-tv-screen {
+    background: #050a05;
+    border: 1px solid #222;
+    border-radius: 10px;
+    padding: 25px;
+    box-shadow: inset 0 0 20px rgba(0,255,65,0.1);
+    min-height: 200px;
+    position: relative;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: #ccc;
+    letter-spacing: 0.5px;
+}
+.crt-tv-screen::before {
+    content: " ";
+    display: block;
+    position: absolute;
+    top: 0; left: 0; bottom: 0; right: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+    background-size: 100% 4px;
+    z-index: 2;
+    pointer-events: none;
+}
+.crt-tv-title {
+    color: var(--blue);
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    border-bottom: 1px dashed var(--blue);
+    padding-bottom: 5px;
+}
+
+/* QUEST TRACKER (DOKOWANY W WAR ROOM) */
+#quest-tracker {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 300px;
+    background: rgba(0, 0, 0, 0.9);
+    border: 1px solid var(--blue);
+    padding: 15px;
+    z-index: 10000;
+    display: none;
+    box-shadow: 0 0 15px rgba(0, 204, 255, 0.2);
+}
+.quest-title {
+    color: var(--blue);
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    border-bottom: 1px dashed #333;
+    padding-bottom: 5px;
+}
+.quest-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 0.8rem;
+    color: #ccc;
+    line-height: 1.3;
+}
+.quest-box {
+    width: 15px;
+    height: 15px;
+    border: 1px solid #555;
+    display: inline-block;
+    flex-shrink: 0;
+}
+.quest-box.done {
+    background: var(--blue);
+    border-color: var(--blue);
+    box-shadow: 0 0 5px var(--blue);
+}
+

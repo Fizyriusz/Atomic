@@ -35,9 +35,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const lon = parseFloat(data[0].lon);
             const locationName = data[0].display_name.split(',')[0];
 
-            // 2. Symulacja uderzenia i wygenerowanie raportu
+            // 2. Pobranie pogody (API Open-Meteo)
+            let windSpeed = 0;
+            let windDir = 0;
+            try {
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+                const wRes = await fetch(weatherUrl);
+                const wData = await wRes.json();
+                windSpeed = wData.current_weather.windspeed;
+                windDir = wData.current_weather.winddirection;
+            } catch(we) {
+                console.warn("Brak danych pogodowych:", we);
+            }
+
+            // 3. Symulacja uderzenia i wygenerowanie raportu
             const kt = activeSurvivalYield;
-            generateReport(locationName, lat, lon, kt);
+            generateReport(locationName, lat, lon, kt, windSpeed, windDir);
             
             // 3. Wysłanie danych do Globalnego Licznika (app.js)
             let megatons = kt >= 1000 ? (kt / 1000) : 1; // Przeliczamy kt na całe megatony do licznika (w uproszczeniu)
@@ -74,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    function generateReport(city, lat, lon, yieldKt) {
+    function generateReport(city, lat, lon, yieldKt, windSpeed = 0, windDir = 0) {
         // Uproszczona matematyka promieni zniszczeń wg reguły pierwiastka 3 stopnia
         const r_fireball = Math.pow(yieldKt, 1/3) * 0.15; // Kula ognia [km]
         const r_heavy = Math.pow(yieldKt, 1/3) * 1.1;     // Zniszczenia ciężkie (20 psi) [km]
@@ -112,6 +125,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <strong>MOC ŁADUNKU:</strong> ${yieldKt} kT<br>
             <br>
             ${statusText}<br>
+            <br>
+            <strong>WARUNKI POGODOWE:</strong> Wiatr ${windSpeed} km/h (kierunek: ${windDir}°)<br>
             <br>
             <strong>OPIS SYTUACJI:</strong><br>
             ${damageText}<br>

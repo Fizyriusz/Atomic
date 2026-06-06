@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Krawędź Zagłady - Interaktywne Archiwum Konfliktów Nuklearnych</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Chosen Palette: Warm Neutrals with Muted Danger Alerts (Beige #FDFBF7, Slate #334155, Muted Red #B91C1C) -->
+    <!-- Application Structure Plan: 
+         1. Dashboard/Home: A grid layout presenting all analyzed nuclear incidents as clickable "files/dossiers". This allows non-linear exploration.
+         2. Detail Views: Each incident has a bespoke interactive view tailored to its nature:
+            - Cuban Missile Crisis: Interactive daily timeline.
+            - Stanislav Petrov: A simulated 1983 radar terminal with a time-pressured decision mechanic.
+            - Hiroshima/Nagasaki: Data-driven view with a comparative yield chart.
+            - Able Archer / Yom Kippur / Norwegian Rocket: Narrative analysis with tension charts or situational breakdowns.
+         The structure is designed to gamify historical learning, placing the user in the context of the tension without overwhelming them with text.
+    -->
+    <!-- Visualization & Content Choices: 
+         - Hiroshima: Goal: Compare scale. Method: Chart.js Bar Chart comparing yields. Justification: Visualizing abstract numbers (kilotons) makes the threat tangible.
+         - Cuban Crisis: Goal: Show escalation over time. Method: Interactive DOM buttons for days + Line Chart for tension. Justification: Demonstrates the day-by-day escalation.
+         - Petrov: Goal: Emulate stress. Method: CSS animated "radar" UI and timer. Justification: Puts the user in Petrov's shoes.
+         CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. All visual flair is CSS or Canvas based.
+    -->
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Inter:wght@300;400;600;800&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFBF7; /* Warm neutral background */
+            color: #334155;
+        }
+
+        .terminal-font {
+            font-family: 'Courier Prime', monospace;
+        }
+
+        /* Chart Container Mandatory Rules */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 250px;
+            }
+        }
+
+        /* Terminal UI for Petrov Scenario */
+        .crt-screen {
+            background-color: #0f172a;
+            color: #22c55e;
+            text-shadow: 0 0 5px rgba(34, 197, 94, 0.5);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+            position: relative;
+            overflow: hidden;
+        }
+        .crt-screen::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        .blinking-alert {
+            animation: blink 1s step-end infinite;
+            color: #ef4444;
+            text-shadow: 0 0 10px #ef4444;
+        }
+
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* Pure CSS Radar */
+        .radar {
+            width: 150px; height: 150px;
+            border-radius: 50%;
+            border: 2px solid #22c55e;
+            position: relative;
+            overflow: hidden;
+            background: radial-gradient(circle, rgba(34,197,94,0.1) 0%, rgba(0,0,0,0) 70%);
+        }
+        .radar::before {
+            content: '';
+            position: absolute; width: 50%; height: 50%; top: 0; left: 50%;
+            background: linear-gradient(45deg, rgba(34,197,94,1) 0%, transparent 50%);
+            transform-origin: bottom left;
+            animation: scan 4s linear infinite;
+        }
+        @keyframes scan { 100% { transform: rotate(360deg); } }
+
+        .btn-custom {
+            transition: all 0.2s ease;
+        }
+        .btn-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-slate-100 py-6 border-b-4 border-red-700 shadow-md">
+        <div class="max-w-6xl mx-auto px-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight">Krawędź Zagłady</h1>
+                <p class="text-sm text-slate-400 terminal-font mt-1">Interaktywne archiwum incydentów nuklearnych</p>
+            </div>
+            <button onclick="app.renderDashboard()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm font-semibold transition-colors">
+                Powrót do akt
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="app-container" class="flex-grow w-full max-w-6xl mx-auto px-4 py-8">
+        <!-- Dynamic content will be injected here -->
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-200 py-6 text-center text-slate-500 text-sm mt-auto border-t border-slate-300">
+        <p>Projekt edukacyjny: Analiza historycznych punktów krytycznych zimnej wojny i ery atomowej.</p>
+    </footer>
+
+    <script>
+        // --- DATA ARCHIVE ---
+        const db = {
+            intro: "Wybierz akta incydentu, aby przeanalizować przebieg wydarzeń, ocenić ryzyko i w niektórych przypadkach podjąć decyzje, przed którymi stali dowódcy.",
+            incidents: [
+                {
+                    id: 'kuba',
+                    title: 'Kryzys Kubański',
+                    year: '1962',
+                    tags: ['Eskalacja', 'Dyplomacja', 'Blokada'],
+                    desc: 'Absolutny klasyk zimnej wojny. Najbliżej, jak ludzkość kiedykolwiek znalazła się otwartej wojny nuklearnej.',
+                    type: 'timeline'
+                },
+                {
+                    id: 'pietrow',
+                    title: 'Incydent Pietrowa',
+                    year: '1983',
+                    tags: ['Błąd Systemu', 'Mgła Wojny', 'Czas'],
+                    desc: 'System wczesnego ostrzegania ZSRR zgłasza atak rakietowy. Jeden człowiek musi zdecydować o losach świata w kilka minut.',
+                    type: 'simulation'
+                },
+                {
+                    id: 'ablearcher',
+                    title: 'Able Archer 83',
+                    year: '1983',
+                    tags: ['Nieporozumienie', 'NATO', 'ZSRR'],
+                    desc: 'Ćwiczenia NATO są tak realistyczne, że radziecki wywiad uznaje je za przygotowania do faktycznego pierwszego uderzenia.',
+                    type: 'analysis'
+                },
+                {
+                    id: 'hiroshima',
+                    title: 'Hiroszima i Nagasaki',
+                    year: '1945',
+                    tags: ['Użycie Bojowe', 'Skutki', 'Dane'],
+                    desc: 'Jedyne w historii bojowe użycie broni nuklearnej. Analiza skali i zniszczeń.',
+                    type: 'data'
+                },
+                {
+                    id: 'jomkipur',
+                    title: 'Opcja Samsona (Jom Kipur)',
+                    year: '1973',
+                    tags: ['Bliski Wschód', 'Ostatnia Deska Ratunku'],
+                    desc: 'Izrael na krawędzi porażki konwencjonalnej przygotowuje rakiety Jerycho z głowicami jądrowymi.',
+                    type: 'scenario'
+                },
+                {
+                    id: 'norwegia',
+                    title: 'Incydent Norweski',
+                    year: '1995',
+                    tags: ['Rakieta Badawcza', 'Walizka Nuklearna'],
+                    desc: 'Wystrzelenie norweskiej rakiety badawczej wyzwala alarm w Rosji. Prezydent Jelcyn otwiera "nuklearną walizkę".',
+                    type: 'analysis'
+                }
+            ],
+            details: {
+                kuba: {
+                    timeline: [
+                        { day: 1, date: "14 Paź", text: "Amerykański samolot zwiadowczy U-2 wykonuje zdjęcia radzieckich wyrzutni rakiet SS-4 na Kubie.", tension: 30 },
+                        { day: 3, date: "16 Paź", text: "Prezydent Kennedy jest informowany o rakietach. Powstaje komitet EXCOMM w celu opracowania opcji.", tension: 40 },
+                        { day: 7, date: "20 Paź", text: "Kennedy decyduje się na morską 'kwarantannę' Kuby, odrzucając na razie bezpośrednie uderzenie powietrzne.", tension: 55 },
+                        { day: 9, date: "22 Paź", text: "Orędzie do narodu. Kennedy publicznie ogłasza obecność rakiet i blokadę. Świat wstrzymuje oddech.", tension: 75 },
+                        { day: 11, date: "24 Paź", text: "Radzieckie statki zbliżają się do linii blokady... i zatrzymują się lub zawracają. 'Patrzyliśmy sobie w oczy, a on właśnie mrugnął'.", tension: 85 },
+                        { day: 14, date: "27 Paź", text: "CZARNA SOBOTA. U-2 zestrzelony nad Kubą (pilot ginie). Nad Czukotką inny U-2 gubi drogę. Radziecki okręt podwodny B-59 o włos od odpalenia torpedy nuklearnej po obrzuceniu bombami głębinowymi.", tension: 100 },
+                        { day: 15, date: "28 Paź", text: "Przełom. Chruszczow ogłasza demontaż rakiet w zamian za publiczną gwarancję nieagresji na Kubę i tajne wycofanie rakiet USA z Turcji.", tension: 20 }
+                    ]
+                },
+                pietrow: {
+                    logs: [
+                        "START SYSTEMU OKO... Zakończono.",
+                        "NASŁUCH SATELITARNY... W normie.",
+                        "26 WRZEŚNIA 1983, 00:15 MSK",
+                        "---------------------------",
+                        "ALARM! WYKRYTO START POCISKU.",
+                        "PRAWDOPODOBIEŃSTWO: WYSOKIE.",
+                        "ŹRÓDŁO: BAZA MALMSTROM, USA.",
+                        "TYP: LGM-30 MINUTEMAN."
+                    ]
+                },
+                hiroshima: {
+                    yieldData: {
+                        labels: ["Little Boy (Hiroszima)", "Fat Man (Nagasaki)", "B-61 (Współczesna USA)", "Minuteman III (USA)", "Tsar Bomba (ZSRR, test)"],
+                        datasets: [{
+                            label: 'Moc (w kilotonach TNT)',
+                            data: [15, 21, 340, 475, 50000],
+                            backgroundColor: ['#f87171', '#ef4444', '#dc2626', '#b91c1c', '#7f1d1d']
+                        }]
+                    }
+                },
+                ablearcher: {
+                    text: "W listopadzie 1983 r. napięcia między USA a ZSRR były niezwykle wysokie. NATO rozpoczęło coroczne ćwiczenia dowodzenia 'Able Archer 83'. Tym razem jednak procedury były wyjątkowo realistyczne: użyto nowych kodów, zarządzono ciszę radiową i symulowano przejście przez wszystkie stopnie gotowości DEFCON aż do ataku nuklearnego.\n\nKGB, w ramach operacji RJaN (Rakietowo-Jądrowe Napadnie), błędnie zinterpretowało te ćwiczenia jako zasłonę dymną dla faktycznego uderzenia wyprzedzającego. Radzieckie jednostki lotnicze w NRD i Polsce załadowały broń jądrową, a 70 rakiet SS-20 zostało postawionych w stan pełnej gotowości. Kryzys minął tylko dlatego, że ćwiczenia NATO zakończyły się zgodnie z planem, zanim ZSRR podjął 'działania wyprzedzające'.",
+                    tensionData: [10, 20, 30, 50, 80, 95, 90, 40, 10]
+                },
+                jomkipur: {
+                    text: "Październik 1973. Po zaskakującym ataku połączonych sił Egiptu i Syrii w dniu święta Jom Kipur, linie obronne Izraela pękają. Na Wzgórzach Golan syryjskie czołgi przełamują front. Minister obrony Mosze Dajan obawia się 'upadku Trzeciej Świątyni'.\n\nW akcie desperacji premier Golda Meir autoryzuje przygotowanie arsenału nuklearnego (oficjalnie nigdy nie potwierdzonego). Rakiety Jerycho I oraz myśliwce F-4 Phantom zostają uzbrojone w głowice jądrowe. Cel: wymuszenie na USA natychmiastowych dostaw broni konwencjonalnej (co nastąpiło w ramach operacji Nickel Grass) oraz ostrzeżenie państw arabskich i ZSRR. Użycie tej broni oznaczałoby odpalenie tzw. 'Opcji Samsona' – zniszczenia wrogów kosztem własnej zagłady."
+                },
+                norwegia: {
+                    text: "Zimna wojna oficjalnie się skończyła, ale procedury pozostały. 25 stycznia 1995 r. z Norwegii wystrzelono rakietę badawczą Black Brant XII do badania zorzy polarnej. Chociaż Norwegowie powiadomili dyplomatycznie 30 krajów, informacja ta nie dotarła do rosyjskich radarzystów.\n\nTrajektoria i prędkość rakiety przypominały pocisk Trident wystrzelony z okrętu podwodnego z zamiarem wygenerowania impulsu EMP oślepiającego rosyjskie radary. Po raz pierwszy i jedyny w historii, prezydent Rosji (Borys Jelcyn) aktywował swoją walizkę nuklearną ('Czeget'). Jelcyn miał kilka minut na decyzję o uderzeniu odwetowym. Na szczęście rakieta spadła w okolicach Spitsbergenu, oddalając się od terytorium Rosji, zanim upłynął limit czasu."
+                }
+            }
+        };
+
+        // --- CORE APPLICATION LOGIC ---
+        const app = {
+            container: document.getElementById('app-container'),
+            activeChart: null,
+
+            init() {
+                this.renderDashboard();
+            },
+
+            clear() {
+                if (this.activeChart) {
+                    this.activeChart.destroy();
+                    this.activeChart = null;
+                }
+                this.container.innerHTML = '';
+            },
+
+            // --- DASHBOARD RENDERER ---
+            renderDashboard() {
+                this.clear();
+                
+                const introHtml = `
+                    <div class="mb-10 text-center max-w-3xl mx-auto">
+                        <h2 class="text-2xl font-bold mb-4 text-slate-800">Wybierz akta z archiwum</h2>
+                        <p class="text-slate-600 text-lg leading-relaxed">${db.intro}</p>
+                    </div>
+                `;
+
+                let gridHtml = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">';
+                
+                db.incidents.forEach(inc => {
+                    gridHtml += `
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer flex flex-col btn-custom" onclick="app.loadScenario('${inc.id}')">
+                            <div class="flex justify-between items-start mb-4">
+                                <span class="bg-red-100 text-red-800 text-xs font-bold px-2 py-1 rounded terminal-font">${inc.year}</span>
+                                <span class="text-xs text-slate-400 uppercase tracking-wider">${inc.type}</span>
+                            </div>
+                            <h3 class="text-xl font-bold mb-2">${inc.title}</h3>
+                            <p class="text-slate-600 text-sm mb-4 flex-grow">${inc.desc}</p>
+                            <div class="flex flex-wrap gap-2 mt-auto">
+                                ${inc.tags.map(tag => `<span class="bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded">${tag}</span>`).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+                gridHtml += '</div>';
+
+                this.container.innerHTML = introHtml + gridHtml;
+            },
+
+            // --- ROUTER ---
+            loadScenario(id) {
+                this.clear();
+                const incident = db.incidents.find(i => i.id === id);
+                
+                // Common header for scenarios
+                const headerHtml = `
+                    <div class="mb-8 border-b pb-4 border-slate-200">
+                        <h2 class="text-3xl font-bold text-slate-900 mb-2">${incident.title} <span class="text-slate-400 font-normal">(${incident.year})</span></h2>
+                        <p class="text-lg text-slate-600">${incident.desc}</p>
+                    </div>
+                `;
+                
+                this.container.innerHTML = headerHtml;
+
+                // Route to specific renderers
+                switch(id) {
+                    case 'kuba': this.renderKuba(); break;
+                    case 'pietrow': this.renderPietrow(); break;
+                    case 'hiroshima': this.renderHiroshima(); break;
+                    case 'ablearcher': this.renderGenericNarrative(id, true); break;
+                    case 'jomkipur': this.renderGenericNarrative(id, false); break;
+                    case 'norwegia': this.renderGenericNarrative(id, false); break;
+                }
+            },
+
+            // --- SCENARIO: KRYZYS KUBAŃSKI ---
+            renderKuba() {
+                const data = db.details.kuba.timeline;
+                
+                const wrapper = document.createElement('div');
+                wrapper.className = 'grid grid-cols-1 lg:grid-cols-3 gap-8';
+                
+                // Left col: Days selector
+                let daysHtml = `<div class="lg:col-span-1 bg-white p-4 rounded-lg shadow-sm border border-slate-200 h-[600px] overflow-y-auto">
+                    <h3 class="font-bold text-slate-800 mb-4 uppercase text-sm tracking-wider">Oś Czasu Kryzysu</h3>
+                    <div class="space-y-2">`;
+                
+                data.forEach((item, index) => {
+                    daysHtml += `<button onclick="app.updateKubaDay(${index})" id="kuba-btn-${index}" class="w-full text-left px-4 py-3 rounded border border-slate-100 hover:bg-slate-50 transition-colors focus:outline-none ${index === 0 ? 'bg-slate-100 border-slate-300 shadow-inner' : ''}">
+                        <div class="font-bold text-slate-700">Dzień ${item.day}</div>
+                        <div class="text-xs text-slate-500">${item.date}</div>
+                    </button>`;
+                });
+                daysHtml += `</div></div>`;
+
+                // Right col: Content & Chart
+                const contentHtml = `
+                    <div class="lg:col-span-2 flex flex-col gap-6">
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200 min-h-[150px]">
+                            <h4 id="kuba-day-title" class="text-xl font-bold text-red-700 mb-2">Dzień 1 (${data[0].date})</h4>
+                            <p id="kuba-day-text" class="text-slate-700 text-lg leading-relaxed">${data[0].text}</p>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+                            <h4 class="font-bold text-slate-800 mb-4 text-center">Poziom Napięcia / Ryzyko Eskalacji</h4>
+                            <div class="chart-container">
+                                <canvas id="kubaChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                wrapper.innerHTML = daysHtml + contentHtml;
+                this.container.appendChild(wrapper);
+
+                // Init Chart
+                const ctx = document.getElementById('kubaChart').getContext('2d');
+                this.activeChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.map(d => `Dz. ${d.day}`),
+                        datasets: [{
+                            label: 'Poziom Napięcia (%)',
+                            data: data.map(d => d.tension),
+                            borderColor: '#dc2626',
+                            backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.3,
+                            pointBackgroundColor: data.map((d, i) => i === 0 ? '#dc2626' : '#fff'),
+                            pointRadius: 6,
+                            pointHoverRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { min: 0, max: 100 } },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            },
+
+            updateKubaDay(index) {
+                const data = db.details.kuba.timeline;
+                const item = data[index];
+                
+                // Update text
+                document.getElementById('kuba-day-title').innerText = `Dzień ${item.day} (${item.date})`;
+                document.getElementById('kuba-day-text').innerText = item.text;
+
+                // Update styling on buttons
+                data.forEach((_, i) => {
+                    const btn = document.getElementById(`kuba-btn-${i}`);
+                    if (i === index) {
+                        btn.classList.add('bg-slate-100', 'border-slate-300', 'shadow-inner');
+                    } else {
+                        btn.classList.remove('bg-slate-100', 'border-slate-300', 'shadow-inner');
+                    }
+                });
+
+                // Update chart highlight
+                const pointColors = data.map((_, i) => i === index ? '#dc2626' : '#fff');
+                this.activeChart.data.datasets[0].pointBackgroundColor = pointColors;
+                this.activeChart.update();
+            },
+
+            // --- SCENARIO: PIETROW ---
+            renderPietrow() {
+                const logs = db.details.pietrow.logs;
+                
+                const wrapper = document.createElement('div');
+                wrapper.className = 'max-w-4xl mx-auto';
+                
+                const html = `
+                    <div class="bg-slate-800 p-2 rounded-xl shadow-2xl mb-6">
+                        <div class="crt-screen p-6 rounded-lg min-h-[400px] flex flex-col font-mono text-sm md:text-base relative">
+                            <div class="flex justify-between items-start border-b border-green-800 pb-2 mb-4 opacity-70">
+                                <span>SERPUCHOW-15 // SYSTEM OKO</span>
+                                <span>STATUS: <span id="sys-status" class="text-green-500">GOTOWY</span></span>
+                            </div>
+                            
+                            <div class="flex flex-col md:flex-row gap-8 flex-grow">
+                                <div class="flex-1 space-y-2" id="console-logs">
+                                    <!-- Logs typed out here -->
+                                </div>
+                                <div class="w-full md:w-1/3 flex flex-col items-center justify-center opacity-0 transition-opacity duration-1000" id="radar-container">
+                                    <div class="radar mb-4"></div>
+                                    <div class="text-center blinking-alert text-xl font-bold hidden" id="target-alert">CEL: ZSRR</div>
+                                </div>
+                            </div>
+
+                            <div class="mt-auto pt-6 opacity-0 transition-opacity duration-500" id="decision-panel">
+                                <p class="text-red-400 mb-4 font-bold">> WYMAGANA DECYZJA DOWÓDCY ZMIANY. POZOSTAŁY CZAS DO UDERZENIA: <span id="countdown">12:00</span></p>
+                                <div class="flex gap-4">
+                                    <button onclick="app.petrovDecision('attack')" class="flex-1 bg-red-900/50 border border-red-500 text-red-500 py-3 font-bold hover:bg-red-800 hover:text-white transition-colors">
+                                        ZGŁOŚ ATAK (ODWET)
+                                    </button>
+                                    <button onclick="app.petrovDecision('ignore')" class="flex-1 bg-green-900/50 border border-green-500 text-green-500 py-3 font-bold hover:bg-green-800 hover:text-white transition-colors">
+                                        ZIGNORUJ (BŁĄD RADARU)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded shadow-sm border border-slate-200">
+                        <h4 class="font-bold text-slate-800 mb-2">Kontekst historyczny</h4>
+                        <p class="text-slate-600">26 września 1983 roku podpułkownik Stanisław Pietrow pełnił dyżur w tajnym bunkrze pod Moskwą. Gdy nowo zainstalowany system satelitarny "Oko" zgłosił wystrzelenie 5 amerykańskich rakiet międzykontynentalnych, Pietrow musiał zadecydować w ułamku sekundy. Zgodnie z protokołem, powinien powiadomić przełożonych, co niemal na pewno doprowadziłoby do odwetowego ataku nuklearnego i III wojny światowej.</p>
+                    </div>
+                `;
+                
+                wrapper.innerHTML = html;
+                this.container.appendChild(wrapper);
+
+                // Simulation logic
+                let logIndex = 0;
+                const logContainer = document.getElementById('console-logs');
+                
+                const typeLog = () => {
+                    if (logIndex < logs.length) {
+                        const p = document.createElement('p');
+                        if (logs[logIndex].includes("ALARM") || logs[logIndex].includes("MINUTEMAN")) {
+                            p.className = 'text-red-500 blinking-alert font-bold';
+                        }
+                        p.innerText = `> ${logs[logIndex]}`;
+                        logContainer.appendChild(p);
+                        
+                        if (logIndex === 4) { // Show radar on ALARM
+                            document.getElementById('sys-status').innerText = 'KRYTYCZNY';
+                            document.getElementById('sys-status').className = 'text-red-500 blinking-alert';
+                            document.getElementById('radar-container').style.opacity = '1';
+                            document.getElementById('target-alert').style.display = 'block';
+                        }
+
+                        logIndex++;
+                        setTimeout(typeLog, 800);
+                    } else {
+                        document.getElementById('decision-panel').style.opacity = '1';
+                        this.startTimer(12, 0); // Start 12 min countdown
+                    }
+                };
+                
+                setTimeout(typeLog, 500);
+            },
+
+            timerInterval: null,
+            startTimer(min, sec) {
+                let time = min * 60 + sec;
+                const display = document.getElementById('countdown');
+                this.timerInterval = setInterval(() => {
+                    time--;
+                    let m = Math.floor(time / 60);
+                    let s = time % 60;
+                    display.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+                    if (time <= 0) {
+                        clearInterval(this.timerInterval);
+                        display.innerText = "0:00 - UDERZENIE";
+                    }
+                }, 1000);
+            },
+
+            petrovDecision(choice) {
+                clearInterval(this.timerInterval);
+                const panel = document.getElementById('decision-panel');
+                if (choice === 'attack') {
+                    panel.innerHTML = `<div class="bg-red-900 text-white p-4 font-bold text-center border border-red-500">Zgłoszono atak. Procedura odwetowa uruchomiona. Symulowany koniec świata. W rzeczywistości system błędnie zinterpretował odbicie słońca od chmur wyższego piętra.</div>`;
+                } else {
+                    panel.innerHTML = `<div class="bg-green-900 text-white p-4 font-bold text-center border border-green-500">Decyzja: Błąd systemu. Napięcie opada. Pietrow uratował świat, dedukując, że prawdziwy atak z USA byłby zmasowany (setki rakiet), a nie składał się z zaledwie pięciu.</div>`;
+                }
+            },
+
+            // --- SCENARIO: HIROSHIMA DATA ---
+            renderHiroshima() {
+                const data = db.details.hiroshima.yieldData;
+                
+                const html = `
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+                            <h3 class="font-bold text-xl text-slate-800 mb-4">Potęga Destrukcji</h3>
+                            <p class="text-slate-600 mb-4">Bomby zrzucone na Hiroszimę (Little Boy) i Nagasaki (Fat Man) były niszczycielskie, pochłaniając natychmiast dziesiątki tysięcy istnień i niszcząc miasta. Jednak w kontekście późniejszego wyścigu zbrojeń zbrojeń zimnej wojny, ich moc wydaje się wręcz "mikroskopijna".</p>
+                            <p class="text-slate-600">Poniższy wykres uświadamia, dlaczego kryzysy takie jak Kubański czy incydent Pietrowa miały stawkę ocalenia ludzkości. Współczesne głowice taktyczne i strategiczne są dziesiątki, a nawet setki razy potężniejsze od pierwszych bomb atomowych.</p>
+                            
+                            <div class="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded text-sm text-red-900">
+                                <strong>Skutki Hiroszimy (15 kt):</strong> Całkowite zniszczenie w promieniu ~1.6 km, fala cieplna wywołująca oparzenia 3. stopnia w promieniu niemal 2 km.
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex flex-col justify-center">
+                            <h4 class="font-bold text-slate-800 mb-4 text-center">Porównanie Mocy Głowic (KilotonTNT)</h4>
+                            <div class="chart-container">
+                                <canvas id="yieldChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                this.container.innerHTML += html;
+
+                const ctx = document.getElementById('yieldChart').getContext('2d');
+                this.activeChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y', // Horizontal bar chart for better label reading
+                        scales: {
+                            x: { 
+                                type: 'logarithmic', // Log scale crucial for showing 15 vs 50,000
+                                title: { display: true, text: 'Moc (kilotony) - Skala Logarytmiczna' }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let val = context.raw;
+                                        return val.toLocaleString('pl-PL') + ' kt';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            },
+
+            // --- GENERIC NARRATIVE VIEW (Able Archer, Jom Kippur, Norwegia) ---
+            renderGenericNarrative(id, withChart) {
+                const data = db.details[id];
+                
+                let html = `
+                    <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200 max-w-4xl mx-auto mb-8">
+                        <div class="prose max-w-none text-slate-700 text-lg leading-relaxed whitespace-pre-wrap">
+                            ${data.text}
+                        </div>
+                    </div>
+                `;
+
+                if (withChart && data.tensionData) {
+                    html += `
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200 max-w-4xl mx-auto">
+                            <h4 class="font-bold text-slate-800 mb-4 text-center">Szacowane ryzyko wybuchu wojny w trakcie kryzysu</h4>
+                            <div class="chart-container">
+                                <canvas id="genericChart"></canvas>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                this.container.innerHTML += html;
+
+                if (withChart && data.tensionData) {
+                    const ctx = document.getElementById('genericChart').getContext('2d');
+                    this.activeChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.tensionData.map((_, i) => `Faza ${i+1}`),
+                            datasets: [{
+                                label: 'Ryzyko %',
+                                data: data.tensionData,
+                                borderColor: '#eab308',
+                                backgroundColor: 'rgba(234, 179, 8, 0.2)',
+                                fill: true,
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: { y: { min: 0, max: 100 } },
+                            plugins: { legend: { display: false } }
+                        }
+                    });
+                }
+            }
+        };
+
+        // Boot
+        window.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+
+    </script>
+</body>
+</html>

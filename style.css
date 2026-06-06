@@ -330,3 +330,240 @@ body::after {
     box-shadow: 0 0 15px rgba(0, 204, 255, 0.2);
     background: rgba(0, 204, 255, 0.05) !important;
 }
+
+/* ---------------------------------------------------- */
+/* FAZA 4 i 5: NOWE MODUŁY ORAZ KAFELKI ARSENAŁU        */
+/* ---------------------------------------------------- */
+.scrollable {
+    overflow-y: auto;
+    height: 100%;
+    padding: 20px;
+}
+
+/* BAZA ARSENAŁU - STATYSTYKI */
+.dashboard-stats {
+    display: flex;
+    justify-content: space-around;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+.stat-box {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid #444;
+    padding: 15px;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #aaa;
+}
+.stat-box span {
+    display: block;
+    font-size: 2rem;
+    font-weight: bold;
+    margin-top: 5px;
+}
+
+/* FILTRY BAZY */
+.filters {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    justify-content: center;
+}
+.filters select {
+    background: #111;
+    color: var(--green);
+    border: 1px solid var(--border-color);
+    padding: 10px;
+    font-family: var(--font-main);
+    outline: none;
+    cursor: pointer;
+}
+
+/* WYKRESY */
+.charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+.chart-box {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid #333;
+    padding: 15px;
+}
+.chart-title {
+    color: var(--blue);
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+    text-align: center;
+}
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 300px;
+}
+
+/* SIATKA BRONI (Arsenał) */
+.weapons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
+}
+.weapon-card {
+    background: rgba(10, 10, 10, 0.8);
+    border: 1px solid #333;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    transition: 0.2s;
+}
+.weapon-card:hover {
+    border-color: var(--green);
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+}
+.weapon-cat {
+    font-size: 0.7rem;
+    padding: 2px 5px;
+    display: inline-block;
+    margin-bottom: 10px;
+    border: 1px solid;
+}
+.cat-Tactical { color: #facc15; border-color: #facc15; }
+.cat-Strategic { color: var(--blue); border-color: var(--blue); }
+.cat-Milestones { color: var(--green); border-color: var(--green); }
+.weapon-name {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #eee;
+    margin: 0 0 5px 0;
+}
+.weapon-desc {
+    font-size: 0.75rem;
+    color: #888;
+    margin-bottom: 15px;
+    flex-grow: 1;
+}
+.weapon-yield {
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-align: right;
+    border-top: 1px dashed #333;
+    padding-top: 10px;
+}
+
+/* KAFELKOWY WYBÓR W WAR ROOM I SURVIVAL */
+.arsenal-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid #222;
+    padding: 5px;
+    background: #000;
+}
+.arsenal-tab-container {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+.arsenal-tab {
+    flex: 1;
+    background: #111;
+    color: #666;
+    border: 1px solid #333;
+    padding: 5px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    text-align: center;
+}
+.arsenal-tab.active {
+    background: var(--blue);
+    color: #000;
+    border-color: var(--blue);
+    font-weight: bold;
+}
+.arsenal-item {
+    background: #0a0a0a;
+    border: 1px solid #333;
+    padding: 10px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: 0.2s;
+}
+.arsenal-item:hover { background: #1a1a1a; }
+.arsenal-item.selected {
+    border-color: var(--red);
+    background: rgba(255, 42, 42, 0.1);
+    box-shadow: inset 0 0 10px rgba(255, 42, 42, 0.3);
+}
+.arsenal-item.selected .i-name { color: var(--red); }
+.i-name { font-size: 0.85rem; font-weight: bold; color: #ccc; }
+.i-yield { font-size: 0.8rem; color: #888; }
+
+/* KRAWĘDŹ ZAGŁADY - ARCHIWUM */
+.archive-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+.archive-card {
+    background: rgba(10, 10, 10, 0.9);
+    border: 1px solid #444;
+    padding: 20px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+.archive-card:hover {
+    border-color: var(--red);
+    box-shadow: 0 0 15px rgba(255, 42, 42, 0.2);
+}
+.archive-card .a-year {
+    color: var(--red);
+    font-weight: bold;
+    border: 1px solid var(--red);
+    padding: 2px 5px;
+    font-size: 0.8rem;
+}
+.archive-header { margin: 20px 0; border-bottom: 1px dashed #444; padding-bottom: 20px; }
+.archive-header h2 { font-size: 2rem; color: #eee; margin: 0; }
+.archive-header p { color: #aaa; margin-top: 10px; }
+
+/* SYMULACJA PIETROWA */
+.crt-radar-container {
+    background: #050505;
+    border: 1px solid #22c55e;
+    box-shadow: inset 0 0 20px rgba(34, 197, 94, 0.2);
+    padding: 20px;
+    display: flex;
+    gap: 20px;
+}
+.console-logs { flex: 1; font-family: monospace; font-size: 0.9rem; color: #22c55e; }
+.console-logs p { margin: 5px 0; }
+.radar-ui {
+    width: 150px; height: 150px;
+    border-radius: 50%;
+    border: 2px solid #22c55e;
+    position: relative;
+    background: radial-gradient(circle, rgba(34,197,94,0.1) 0%, rgba(0,0,0,0) 70%);
+}
+.radar-ui::before {
+    content: '';
+    position: absolute; width: 50%; height: 50%; top: 0; left: 50%;
+    background: linear-gradient(45deg, rgba(34,197,94,1) 0%, transparent 50%);
+    transform-origin: bottom left;
+    animation: scan 4s linear infinite;
+}
+@keyframes scan { 100% { transform: rotate(360deg); } }
+
+/* RESPONSYWNOŚĆ */
+@media (max-width: 768px) {
+    .charts-grid { grid-template-columns: 1fr; }
+    .crt-radar-container { flex-direction: column; }
+}

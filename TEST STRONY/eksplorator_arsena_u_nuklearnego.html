@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arsenał Nuklearny: Baza Danych</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <!-- Chosen Palette: Slate gray background (slate-50/100), dark slate text, accents: Amber (Tactical), Blue (Strategic), Emerald (Milestones) -->
+    <!-- Application Structure Plan: 
+         1. Header with title and brief context.
+         2. Dashboard Overview: Dynamic summary statistics (total weapons, total yield, active countries).
+         3. Visualizations: A bubble/scatter chart (Year vs Yield) using logarithmic scale to handle extreme variance, and a bar chart for distribution by country.
+         4. Interactive Explorer: A filterable grid of weapon cards with detailed, catchy descriptions.
+         This structure allows users to first grasp the macro-scale (stats, timeline) and then drill down into individual micro-stories (grid). -->
+    <!-- Visualization & Content Choices: 
+         - Scatter/Bubble Chart: Shows the evolution of yield over time. Logarithmic Y-axis is mandatory because yields range from 0.01 kt to 50,000 kt.
+         - Bar Chart: Quickly compares arsenal presence in the database per country.
+         - Dynamic Grid: Allows reading the specific "hooks" requested by the user. 
+         Library: Chart.js for canvas rendering. Confirming NO SVG/Mermaid. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+            color: #0f172a; /* slate-900 */
+        }
+
+        /* Standardized Chart Container as per requirements */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 450px;
+        }
+
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+
+        /* Custom Scrollbar for grid */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #e2e8f0; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b; 
+        }
+
+        /* Category Badge Colors */
+        .badge-Tactical { background-color: #fef3c7; color: #d97706; border: 1px solid #fde68a; } /* Amber */
+        .badge-Strategic { background-color: #dbeafe; color: #2563eb; border: 1px solid #bfdbfe; } /* Blue */
+        .badge-Milestones { background-color: #d1fae5; color: #059669; border: 1px solid #a7f3d0; } /* Emerald */
+
+        .card-transition {
+            transition: all 0.3s ease;
+        }
+        .card-transition:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="antialiased pb-20">
+
+    <!-- Header Section -->
+    <header class="bg-slate-900 text-white pt-16 pb-12 px-4 shadow-lg mb-8">
+        <div class="max-w-7xl mx-auto">
+            <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Cienie Zimnej Wojny: <span class="text-blue-400">Arsenał Nuklearny</span></h1>
+            <p class="text-slate-300 text-lg md:text-xl max-w-3xl leading-relaxed">
+                Eksplorator historycznych i współczesnych ładunków jądrowych. Od miniaturowych pocisków taktycznych po potwory zdolne spopielić całe metropolie. Przeanalizuj ewolucję najbardziej destrukcyjnej broni stworzonej przez ludzkość.
+            </p>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 space-y-12">
+
+        <!-- Context & Dashboard Introduction -->
+        <section>
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-slate-800 border-b-2 border-slate-200 pb-2 mb-4">Przegląd Bazy Danych</h2>
+                <p class="text-slate-600">Poniższy panel prezentuje sumaryczne statystyki dla aktualnie filtrowanych danych. Wizualizacje pozwalają zrozumieć, jak na przestrzeni dekad rosła i malała siła niszczycielska ładunków, oraz jak rozkłada się ona pomiędzy mocarstwami.</p>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center">
+                    <span class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-1">Wyświetlane Ładunki</span>
+                    <span id="stat-count" class="text-4xl font-black text-slate-800">0</span>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center">
+                    <span class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-1">Całkowita Siła (Kilotony)</span>
+                    <span id="stat-yield" class="text-4xl font-black text-red-600">0</span>
+                    <span class="text-xs text-slate-400 mt-1">Dla porównania: Hiroszima to ok. 15 kt</span>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center">
+                    <span class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-1">Reprezentowane Kraje</span>
+                    <span id="stat-countries" class="text-4xl font-black text-blue-600">0</span>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center justify-between mb-8">
+                <div class="flex items-center gap-2">
+                    <span class="font-semibold text-slate-700">&#9881; Filtry:</span>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                    <select id="filter-category" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full md:w-48 p-2.5 outline-none cursor-pointer">
+                        <option value="all">Wszystkie Kategorie</option>
+                        <option value="Tactical">Ładunki Taktyczne</option>
+                        <option value="Strategic">Ładunki Strategiczne</option>
+                        <option value="Milestones">Kamienie Milowe</option>
+                    </select>
+                    
+                    <select id="filter-country" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full md:w-48 p-2.5 outline-none cursor-pointer">
+                        <option value="all">Wszystkie Kraje</option>
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Chart 1: Timeline vs Yield -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <h3 class="text-lg font-bold text-slate-800 mb-2">Oś Czasu vs Siła Wybuchu (Skala Logarytmiczna)</h3>
+                    <p class="text-sm text-slate-500 mb-4">Rozwój ładunków w czasie. Zwróć uwagę na ekstremalny skok mocy w latach 50. i 60. oraz późniejszą miniaturyzację.</p>
+                    <div class="chart-container">
+                        <canvas id="timelineChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 2: Distribution by Country -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <h3 class="text-lg font-bold text-slate-800 mb-2">Rozkład w Bazie Danych wg Krajów</h3>
+                    <p class="text-sm text-slate-500 mb-4">Liczba projektów/ładunków z poszczególnych państw uwzględnionych w aktualnym widoku.</p>
+                    <div class="chart-container">
+                        <canvas id="countryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Grid Section -->
+        <section>
+            <div class="mb-6 mt-4">
+                <h2 class="text-2xl font-bold text-slate-800 border-b-2 border-slate-200 pb-2 mb-4">Katalog Ładunków</h2>
+                <p class="text-slate-600">Szczegółowe profile poszczególnych bomb i głowic. Każda karta to fragment przerażającej, ale fascynującej historii zimnowojennego i współczesnego wyścigu zbrojeń.</p>
+            </div>
+            
+            <div id="weapons-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <!-- Cards injected by JS -->
+            </div>
+            
+            <div id="no-results" class="hidden text-center py-12 text-slate-500 font-semibold text-lg">
+                Brak wyników dla wybranych filtrów.
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Data and Application Logic -->
+    <script>
+        // --- 1. JSON DATABASE ---
+        const nuclearData = [
+            {
+                "id": "USA_001",
+                "name": "Trinity (Gadget)",
+                "country": "USA",
+                "yield_kt": 21,
+                "year": 1945,
+                "category": "Milestones",
+                "short_desc": "Pierwsza w historii udana detonacja bomby nuklearnej, która na pustyni w Nowym Meksyku brutalnie rozpoczęła erę atomową."
+            },
+            {
+                "id": "USA_002",
+                "name": "Little Boy",
+                "country": "USA",
+                "yield_kt": 15,
+                "year": 1945,
+                "category": "Milestones",
+                "short_desc": "Zrzucana na Hiroszimę uranowa bomba działowa. Pierwsza broń jądrowa kiedykolwiek użyta w walce, zmieniająca oblicze wojen na zawsze."
+            },
+            {
+                "id": "USA_003",
+                "name": "Fat Man",
+                "country": "USA",
+                "yield_kt": 21,
+                "year": 1945,
+                "category": "Milestones",
+                "short_desc": "Plutonowa bomba implozyjna zrzucona na Nagasaki. Jej skomplikowana budowa stała się wzorem dla przyszłych arsenałów na całym świecie."
+            },
+            {
+                "id": "USSR_001",
+                "name": "RDS-1 (Pierwaja Mołnija)",
+                "country": "ZSRR/Rosja",
+                "yield_kt": 22,
+                "year": 1949,
+                "category": "Milestones",
+                "short_desc": "Pierwsza radziecka bomba atomowa. Jej detonacja zszokowała Zachód, udowadniając, że Amerykanie stracili monopol na broń ostateczną."
+            },
+            {
+                "id": "USA_004",
+                "name": "Ivy Mike",
+                "country": "USA",
+                "yield_kt": 10400,
+                "year": 1952,
+                "category": "Milestones",
+                "short_desc": "Monstrum wczesnej technologii. Pierwsza na świecie bomba wodorowa, która po prostu wyparowała z powierzchni oceanu całą wyspę Elugelab."
+            },
+            {
+                "id": "USSR_002",
+                "name": "RDS-37",
+                "country": "ZSRR/Rosja",
+                "yield_kt": 1600,
+                "year": 1955,
+                "category": "Milestones",
+                "short_desc": "Pierwsza radziecka, dwustopniowa bomba termojądrowa zdolna do zrzutu z samolotu. Prawdziwy początek strategicznego wyścigu."
+            },
+            {
+                "id": "USSR_003",
+                "name": "Car Bomba (RDS-220)",
+                "country": "ZSRR/Rosja",
+                "yield_kt": 50000,
+                "year": 1961,
+                "category": "Milestones",
+                "short_desc": "Największa zdetonowana bomba w historii. Jej fala uderzeniowa okrążyła Ziemię 3 razy, a błysk był widoczny z odległości 1000 kilometrów."
+            },
+            {
+                "id": "USA_005",
+                "name": "B61",
+                "country": "USA",
+                "yield_kt": 340,
+                "year": 1968,
+                "category": "Tactical",
+                "short_desc": "Podstawowa bomba grawitacyjna NATO z regulowaną siłą wybuchu. Niewielka, uniwersalna i do dziś spoczywająca w europejskich hangarach."
+            },
+            {
+                "id": "USA_006",
+                "name": "W76",
+                "country": "USA",
+                "yield_kt": 100,
+                "year": 1978,
+                "category": "Strategic",
+                "short_desc": "Cichy zabójca głębin. Głowica masowo instalowana na pociskach Trident, przenoszonych przez potężne, amerykańskie okręty podwodne."
+            },
+            {
+                "id": "USA_007",
+                "name": "W87",
+                "country": "USA",
+                "yield_kt": 300,
+                "year": 1986,
+                "category": "Strategic",
+                "short_desc": "Niezwykle precyzyjna głowica z rakiet Minuteman III, ukrytych w silosach rozrzuconych po równinach Stanów Zjednoczonych."
+            },
+            {
+                "id": "USA_008",
+                "name": "W88",
+                "country": "USA",
+                "yield_kt": 475,
+                "year": 1989,
+                "category": "Strategic",
+                "short_desc": "Uznawana za najbardziej zaawansowaną i zminiaturyzowaną głowicę w arsenale USA, zdolna zmieścić gigantyczną moc w małym stożku."
+            },
+            {
+                "id": "USSR_004",
+                "name": "R-36M (SS-18 Satan)",
+                "country": "ZSRR/Rosja",
+                "yield_kt": 20000,
+                "year": 1974,
+                "category": "Strategic",
+                "short_desc": "Najpotężniejszy pocisk międzykontynentalny świata. Budził taki popłoch na Zachodzie, że planiści NATO nadali mu oficjalny przydomek 'Szatan'."
+            },
+            {
+                "id": "USSR_005",
+                "name": "Topol-M (Głowica)",
+                "country": "ZSRR/Rosja",
+                "yield_kt": 800,
+                "year": 1997,
+                "category": "Strategic",
+                "short_desc": "Podstawowa broń współczesnych, mobilnych wyrzutni rosyjskich, przemierzających ukradkiem syberyjskie lasy."
+            },
+            {
+                "id": "CHN_001",
+                "name": "DF-41 (Głowica)",
+                "country": "Chiny",
+                "yield_kt": 1000,
+                "year": 2017,
+                "category": "Strategic",
+                "short_desc": "Najnowocześniejsza chluba chińskiego arsenału. Potężny pocisk drogowy z systemem MIRV, mogący uderzyć w każdy punkt na Ziemi."
+            },
+            {
+                "id": "CHN_002",
+                "name": "Test No. 6",
+                "country": "Chiny",
+                "yield_kt": 3300,
+                "year": 1967,
+                "category": "Milestones",
+                "short_desc": "Pierwsza chińska bomba wodorowa. Udowodniła szokująco szybki postęp naukowy Pekinu, raptem 3 lata po ich pierwszej zwykłej bombie."
+            },
+            {
+                "id": "FRA_001",
+                "name": "Gerboise Bleue",
+                "country": "Francja",
+                "yield_kt": 70,
+                "year": 1960,
+                "category": "Milestones",
+                "short_desc": "Błękitny Skoczek Pustynny. Pierwszy francuski test nuklearny przeprowadzony w sercu algierskiej Sahary, wciągający Paryż do atomowego klubu."
+            },
+            {
+                "id": "FRA_002",
+                "name": "TN 75",
+                "country": "Francja",
+                "yield_kt": 110,
+                "year": 1996,
+                "category": "Strategic",
+                "short_desc": "Niewidzialna tarcza republiki. Zminiaturyzowana głowica termojądrowa ukryta głęboko w trzewiach francuskich okrętów podwodnych klasy Triomphant."
+            },
+            {
+                "id": "FRA_003",
+                "name": "ASMP-A",
+                "country": "Francja",
+                "yield_kt": 300,
+                "year": 2009,
+                "category": "Tactical",
+                "short_desc": "Naddźwiękowy pocisk manewrujący z głowicą nuklearną. Przenoszony przez myśliwce Rafale jako ostateczne 'ostrzeżenie' przed atakiem na pełną skalę."
+            },
+            {
+                "id": "UK_001",
+                "name": "Operation Hurricane",
+                "country": "Wielka Brytania",
+                "yield_kt": 25,
+                "year": 1952,
+                "category": "Milestones",
+                "short_desc": "Brytyjski debiut nuklearny. Ładunek potajemnie zdetonowano wewnątrz starej fregaty u wybrzeży Australii, sprawdzając skutki przemytu bomby statkiem."
+            },
+            {
+                "id": "UK_002",
+                "name": "WE.177",
+                "country": "Wielka Brytania",
+                "yield_kt": 450,
+                "year": 1966,
+                "category": "Tactical",
+                "short_desc": "Główny oręż taktyczny lotnictwa Królewskiego z czasów zimnej wojny, zaplanowany do niszczenia radzieckich kolumn pancernych w Europie."
+            },
+            {
+                "id": "IND_001",
+                "name": "Uśmiechnięty Budda",
+                "country": "Indie",
+                "yield_kt": 12,
+                "year": 1974,
+                "category": "Milestones",
+                "short_desc": "Ściśle tajny indyjski test o ironicznym kryptonimie. Wstrząsnął światową dyplomacją i zapoczątkował niebezpieczny wyścig zbrojeń w Azji Południowej."
+            },
+            {
+                "id": "PAK_001",
+                "name": "Chagai-I",
+                "country": "Pakistan",
+                "yield_kt": 40,
+                "year": 1998,
+                "category": "Milestones",
+                "short_desc": "Pospieszna, ale stanowcza odpowiedź Pakistanu na testy Indii. Seria detonacji głęboko pod czerwoną górą w Beludżystanie wyrównała siły w regionie."
+            },
+            {
+                "id": "PRK_001",
+                "name": "Hwasong-15 (Głowica)",
+                "country": "Korea Płn.",
+                "yield_kt": 250,
+                "year": 2017,
+                "category": "Strategic",
+                "short_desc": "Głowica potężnej rakiety, która udowodniła ponad wszelką wątpliwość, że izolowany reżim w Pjongjangu potrafi dosięgnąć kontynentalnego terytorium USA."
+            },
+            {
+                "id": "USA_009",
+                "name": "Davy Crockett (M388)",
+                "country": "USA",
+                "yield_kt": 0.02,
+                "year": 1961,
+                "category": "Tactical",
+                "short_desc": "Miniaturowy pocisk nuklearny wystrzeliwany z działa bezodrzutowego na statywie. Miał tak mały zasięg, że śmiertelnie zagrażał własnej załodze."
+            },
+            {
+                "id": "USSR_006",
+                "name": "2B1 Oka / RDS-4",
+                "country": "ZSRR/Rosja",
+                "yield_kt": 10,
+                "year": 1957,
+                "category": "Tactical",
+                "short_desc": "Absurdalny pocisk z gigantycznego, samobieżnego moździerza o lufie długości 20 metrów. Pojazd trząsł się w posadach i często psuł po każdym strzale."
+            },
+            {
+                "id": "USA_010",
+                "name": "SADM (W54)",
+                "country": "USA",
+                "yield_kt": 0.01,
+                "year": 1961,
+                "category": "Tactical",
+                "short_desc": "Niewielka głowica 'plecakowa'. Komandosi z jednostek specjalnych mieli z nią skakać na spadochronach i ręcznie detonować za liniami wroga."
+            }
+        ];
+
+        // --- 2. STATE & INITIALIZATION ---
+        let state = {
+            data: [...nuclearData],
+            filteredData: [...nuclearData],
+            filters: {
+                category: 'all',
+                country: 'all'
+            },
+            charts: {
+                timeline: null,
+                country: null
+            }
+        };
+
+        const domElements = {
+            categoryFilter: document.getElementById('filter-category'),
+            countryFilter: document.getElementById('filter-country'),
+            grid: document.getElementById('weapons-grid'),
+            noResults: document.getElementById('no-results'),
+            statCount: document.getElementById('stat-count'),
+            statYield: document.getElementById('stat-yield'),
+            statCountries: document.getElementById('stat-countries')
+        };
+
+        function init() {
+            populateCountryDropdown();
+            setupEventListeners();
+            initCharts();
+            updateApp();
+        }
+
+        // --- 3. UI LOGIC ---
+        function populateCountryDropdown() {
+            const countries = [...new Set(state.data.map(item => item.country))].sort();
+            countries.forEach(country => {
+                const option = document.createElement('option');
+                option.value = country;
+                option.textContent = country;
+                domElements.countryFilter.appendChild(option);
+            });
+        }
+
+        function setupEventListeners() {
+            domElements.categoryFilter.addEventListener('change', (e) => {
+                state.filters.category = e.target.value;
+                updateApp();
+            });
+            domElements.countryFilter.addEventListener('change', (e) => {
+                state.filters.country = e.target.value;
+                updateApp();
+            });
+        }
+
+        function applyFilters() {
+            state.filteredData = state.data.filter(item => {
+                const matchCategory = state.filters.category === 'all' || item.category === state.filters.category;
+                const matchCountry = state.filters.country === 'all' || item.country === state.filters.country;
+                return matchCategory && matchCountry;
+            });
+        }
+
+        function updateStats() {
+            const count = state.filteredData.length;
+            const totalYield = state.filteredData.reduce((sum, item) => sum + item.yield_kt, 0);
+            const countriesCount = new Set(state.filteredData.map(i => i.country)).size;
+
+            animateValue(domElements.statCount, parseInt(domElements.statCount.innerText.replace(/,/g, '')) || 0, count, 500);
+            animateValue(domElements.statYield, parseInt(domElements.statYield.innerText.replace(/,/g, '')) || 0, totalYield, 800);
+            animateValue(domElements.statCountries, parseInt(domElements.statCountries.innerText.replace(/,/g, '')) || 0, countriesCount, 500);
+        }
+
+        function animateValue(obj, start, end, duration) {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                // Ease out quad
+                const easeProgress = progress * (2 - progress);
+                const currentVal = Math.floor(easeProgress * (end - start) + start);
+                obj.innerHTML = currentVal.toLocaleString('pl-PL');
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        function getCategoryLabels(category) {
+            switch(category) {
+                case 'Tactical': return { label: 'Taktyczne', color: '#d97706' }; // Amber
+                case 'Strategic': return { label: 'Strategiczne', color: '#2563eb' }; // Blue
+                case 'Milestones': return { label: 'Kamienie Milowe', color: '#059669' }; // Emerald
+                default: return { label: 'Inne', color: '#64748b' };
+            }
+        }
+
+        function renderGrid() {
+            domElements.grid.innerHTML = '';
+            
+            if (state.filteredData.length === 0) {
+                domElements.grid.classList.add('hidden');
+                domElements.noResults.classList.remove('hidden');
+                return;
+            }
+
+            domElements.grid.classList.remove('hidden');
+            domElements.noResults.classList.add('hidden');
+
+            state.filteredData.sort((a,b) => a.year - b.year).forEach(item => {
+                const catMeta = getCategoryLabels(item.category);
+                
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col card-transition';
+                
+                card.innerHTML = `
+                    <div class="p-5 flex-grow">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="text-xs font-bold uppercase px-2 py-1 rounded-full badge-${item.category}">
+                                ${catMeta.label}
+                            </span>
+                            <span class="text-slate-400 text-sm font-semibold">${item.year}</span>
+                        </div>
+                        <h3 class="text-xl font-extrabold text-slate-800 mb-1 leading-tight">${item.name}</h3>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">&#127988; ${item.country}</p>
+                        <p class="text-slate-600 text-sm leading-relaxed">${item.short_desc}</p>
+                    </div>
+                    <div class="bg-slate-50 border-t border-slate-100 p-4 mt-auto flex justify-between items-center">
+                        <span class="text-xs text-slate-500 font-medium uppercase tracking-wide">Siła Wybuchu</span>
+                        <span class="font-black text-lg ${item.yield_kt > 1000 ? 'text-red-600' : 'text-slate-700'}">${item.yield_kt.toLocaleString('pl-PL')} kt</span>
+                    </div>
+                `;
+                domElements.grid.appendChild(card);
+            });
+        }
+
+        // --- 4. CHARTS LOGIC (Chart.js) ---
+        function initCharts() {
+            Chart.defaults.font.family = "'Inter', sans-serif";
+            Chart.defaults.color = '#64748b';
+
+            // Chart 1: Timeline Scatter (Year vs Yield)
+            const ctxTimeline = document.getElementById('timelineChart').getContext('2d');
+            state.charts.timeline = new Chart(ctxTimeline, {
+                type: 'scatter',
+                data: { datasets: [] }, // Populated in updateCharts
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleFont: { size: 14, weight: 'bold' },
+                            bodyFont: { size: 13 },
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    return [
+                                        point.name,
+                                        `Kraj: ${point.country}`,
+                                        `Siła: ${point.y.toLocaleString('pl-PL')} kt`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: { display: true, text: 'Rok' },
+                            ticks: { 
+                                callback: function(value) { return value.toString().replace(/,/g, ''); },
+                                stepSize: 10
+                            },
+                            grid: { color: '#f1f5f9' }
+                        },
+                        y: {
+                            type: 'logarithmic', // CRITICAL for visualizing 0.01 vs 50000
+                            title: { display: true, text: 'Siła Wybuchu (Kiloton - skala log.)' },
+                            grid: { color: '#f1f5f9' },
+                            ticks: {
+                                callback: function(value, index, values) {
+                                    if(value === 0.01 || value === 1 || value === 10 || value === 100 || value === 1000 || value === 10000 || value === 50000) {
+                                        return value + ' kt';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Chart 2: Country Bar Chart
+            const ctxCountry = document.getElementById('countryChart').getContext('2d');
+            state.charts.country = new Chart(ctxCountry, {
+                type: 'bar',
+                data: { labels: [], datasets: [] }, // Populated later
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            padding: 12,
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 },
+                            title: { display: true, text: 'Liczba ładunków' },
+                            grid: { color: '#f1f5f9' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCharts() {
+            // Update Timeline Scatter Chart
+            const tacticalData = state.filteredData.filter(d => d.category === 'Tactical').map(d => ({x: d.year, y: d.yield_kt, name: d.name, country: d.country}));
+            const strategicData = state.filteredData.filter(d => d.category === 'Strategic').map(d => ({x: d.year, y: d.yield_kt, name: d.name, country: d.country}));
+            const milestoneData = state.filteredData.filter(d => d.category === 'Milestones').map(d => ({x: d.year, y: d.yield_kt, name: d.name, country: d.country}));
+
+            state.charts.timeline.data = {
+                datasets: [
+                    {
+                        label: 'Taktyczne',
+                        data: tacticalData,
+                        backgroundColor: 'rgba(217, 119, 6, 0.7)', // amber
+                        borderColor: '#d97706',
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    },
+                    {
+                        label: 'Strategiczne',
+                        data: strategicData,
+                        backgroundColor: 'rgba(37, 99, 235, 0.7)', // blue
+                        borderColor: '#2563eb',
+                        pointRadius: 7,
+                        pointHoverRadius: 9
+                    },
+                    {
+                        label: 'Kamienie Milowe',
+                        data: milestoneData,
+                        backgroundColor: 'rgba(5, 150, 105, 0.8)', // emerald
+                        borderColor: '#059669',
+                        pointRadius: 8,
+                        pointStyle: 'triangle',
+                        pointHoverRadius: 10
+                    }
+                ]
+            };
+            state.charts.timeline.update();
+
+            // Update Country Bar Chart
+            const countryCounts = {};
+            state.filteredData.forEach(item => {
+                countryCounts[item.country] = (countryCounts[item.country] || 0) + 1;
+            });
+            
+            // Sort by count descending
+            const sortedCountries = Object.keys(countryCounts).sort((a,b) => countryCounts[b] - countryCounts[a]);
+            const barData = sortedCountries.map(c => countryCounts[c]);
+
+            state.charts.country.data = {
+                labels: sortedCountries,
+                datasets: [{
+                    label: 'Ilość',
+                    data: barData,
+                    backgroundColor: 'rgba(100, 116, 139, 0.8)', // slate-500
+                    borderRadius: 4
+                }]
+            };
+            state.charts.country.update();
+        }
+
+        function updateApp() {
+            applyFilters();
+            updateStats();
+            renderGrid();
+            updateCharts();
+        }
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', init);
+
+    </script>
+</body>
+</html>

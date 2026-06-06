@@ -9,6 +9,7 @@ let patriotBatteries = []; // { latlng, marker, circle }
 let isWarRoomInitialized = false;
 let selectionMode = 'base'; // 'base' lub 'target'
 let activeCarrier = 'icbm';
+let activeWarYield = 350; // Domyślna moc w KT
 
 // Stan aktywnej misji
 let activeMissionId = null;
@@ -45,8 +46,66 @@ window.initWarRoom = function() {
 
         map.on('click', handleMapClick);
         isWarRoomInitialized = true;
+        
+        initWarArsenalUI(); // Inicjalizacja kafelków arsenału
+        
         logWarMsg("SYSTEM WDS INICJOWANY...");
     }, 100);
+}
+
+// Funkcja budująca nowe kafelki wyboru broni
+function initWarArsenalUI() {
+    const container = document.getElementById('war-arsenal-container');
+    if (!container) return;
+    
+    // Tworzenie zakładek
+    const tabsContainer = document.createElement('div');
+    tabsContainer.className = 'arsenal-tab-container';
+    
+    const categories = ['Tactical', 'Strategic', 'Milestones'];
+    const labels = ['Taktyczne', 'Strategiczne', 'Giganty'];
+    let activeCat = 'Tactical';
+    
+    const itemsContainer = document.createElement('div');
+    
+    const renderItems = (cat) => {
+        itemsContainer.innerHTML = '';
+        const items = window.nuclearData.filter(d => d.category === cat).sort((a,b) => a.yield_kt - b.yield_kt);
+        items.forEach(item => {
+            const el = document.createElement('div');
+            el.className = 'arsenal-item';
+            if (activeWarYield === item.yield_kt) el.classList.add('selected');
+            
+            el.innerHTML = `
+                <div class="i-name">${item.name}</div>
+                <div class="i-yield">${item.yield_kt.toLocaleString()} kT</div>
+            `;
+            el.onclick = () => {
+                activeWarYield = item.yield_kt;
+                renderItems(activeCat);
+            };
+            itemsContainer.appendChild(el);
+        });
+    };
+
+    categories.forEach((cat, idx) => {
+        const tab = document.createElement('div');
+        tab.className = 'arsenal-tab';
+        if (cat === activeCat) tab.classList.add('active');
+        tab.innerText = labels[idx];
+        tab.onclick = () => {
+            activeCat = cat;
+            document.querySelectorAll('#war-arsenal-container .arsenal-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            renderItems(activeCat);
+        };
+        tabsContainer.appendChild(tab);
+    });
+    
+    container.innerHTML = '';
+    container.appendChild(tabsContainer);
+    container.appendChild(itemsContainer);
+    renderItems(activeCat);
 }
 
 window.setWarMode = function(mode) {
@@ -185,7 +244,7 @@ window.launchWarAction = async function() {
         logWarMsg(`WYSTRZELONO POCISK. POZOSTAŁO: ${activeMissionMissilesRemaining}`);
     }
 
-    const yieldKt = parseFloat(document.getElementById('war-yield').value);
+    const yieldKt = activeWarYield;
     document.getElementById('btn-war-launch').disabled = true;
     logWarMsg(`ODPALENIE GŁOWICY: ${yieldKt}kT...`);
     
@@ -390,11 +449,11 @@ function detonate(latlng, data) {
     const zones = [
         { r: yieldFactor * 3300 * scale, col: '#555', label: 'Podmuch' },
         { r: yieldFactor * 1100 * scale, col: '#ff2a2a', label: 'Zniszczenia' },
-        { r: yieldFactor * 150, col: '#ffff00', label: 'Kula ognia' }
+        { r: yieldFactor * 150, col: '#00ff41', label: 'Kula ognia' }
     ];
 
     zones.forEach(z => {
-        const c = L.circle(latlng, { radius: z.r, color: z.col, fillOpacity: 0.25 }).addTo(map);
+        const c = L.circle(latlng, { radius: z.r, color: z.col, weight: 2, fillOpacity: 0.2 }).addTo(map);
         activeLayers.push(c);
     });
     
@@ -501,8 +560,9 @@ window.loadScenario = function(scenName) {
         activeLayers.push(mPatriot, circle);
         
         activeCarrier = 'icbm';
-        document.getElementById('war-yield').value = "350";
+        activeWarYield = 350;
         document.getElementById('war-height').value = "surface";
+        initWarArsenalUI();
         
         updateWarStats();
         logWarMsg("SCENARIUSZ: KRYZYS KUBAŃSKI 1962.");
@@ -623,7 +683,8 @@ window.startMission = function(missionId) {
             else btn.classList.add('active');
         });
         document.getElementById('btn-war-target').disabled = true; // Cel zablokowany
-        document.getElementById('war-yield').value = "350";
+        activeWarYield = 350;
+        initWarArsenalUI();
         
         // Limity
         activeMissionBasesRemaining = 1;
@@ -663,7 +724,8 @@ window.startMission = function(missionId) {
             else btn.classList.add('active');
         });
         document.getElementById('btn-war-target').disabled = true;
-        document.getElementById('war-yield').value = "350";
+        activeWarYield = 350;
+        initWarArsenalUI();
         
         // Limity
         activeMissionBasesRemaining = 1;
@@ -701,7 +763,8 @@ window.startMission = function(missionId) {
             else btn.classList.add('active');
         });
         document.getElementById('btn-war-target').disabled = true;
-        document.getElementById('war-yield').value = "800";
+        activeWarYield = 800;
+        initWarArsenalUI();
         
         // Limity
         activeMissionBasesRemaining = 3; // Można postawić 3 silosy

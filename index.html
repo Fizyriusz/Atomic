@@ -13,6 +13,7 @@
     <!-- Biblioteki JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -50,6 +51,8 @@
         <div class="mod-btn active" data-target="survival">KALKULATOR PRZETRWANIA</div>
         <div class="mod-btn" data-target="war">WAR ROOM (STRATEGIA)</div>
         <div class="mod-btn" data-target="missions">MISJE I WYZWANIA</div>
+        <div class="mod-btn" data-target="arsenal">BAZA ARSENAŁU</div>
+        <div class="mod-btn" data-target="archive">KRAWĘDŹ ZAGŁADY</div>
     </div>
 
     <!-- ============================================== -->
@@ -66,13 +69,8 @@
             </div>
 
             <div class="input-group">
-                <label>Wybierz głowicę nuklearną:</label>
-                <select id="survival-bomb">
-                    <option value="15">Little Boy (15 kT - Hiroszima)</option>
-                    <option value="350" selected>W78 Minuteman III (350 kT)</option>
-                    <option value="800">SS-25 Sickle (800 kT)</option>
-                    <option value="50000">Tsar Bomba (50,000 kT)</option>
-                </select>
+                <label>Wybierz głowicę nuklearną z bazy danych:</label>
+                <div id="survival-arsenal-container" class="arsenal-selector"></div>
             </div>
 
             <button id="btn-check-survival" class="btn-action">PRZEPROWADŹ SYMULACJĘ</button>
@@ -102,12 +100,7 @@
                     <div class="triad-btn" data-type="bomber" onclick="selectCarrier(this)">B-2 Stealth</div>
                     <div class="triad-btn" data-type="patriot" onclick="selectCarrier(this)">Tarcza Patriot</div>
                 </div>
-                <select id="war-yield" style="width:100%; background:#111; color:var(--green); padding:5px; border:1px solid #444; margin-top:5px;">
-                    <option value="15">Little Boy (15 kT)</option>
-                    <option value="350" selected>Głowica Taktyczna (350 kT)</option>
-                    <option value="800">Głowica Strategiczna (800 kT)</option>
-                    <option value="50000">Tsar Bomba (50 MT)</option>
-                </select>
+                <div id="war-arsenal-container" class="arsenal-selector"></div>
             </div>
 
             <div class="war-section">
@@ -230,10 +223,63 @@
         </div>
     </div>
 
+    <!-- ============================================== -->
+    <!-- MODUŁ 4: BAZA ARSENAŁU                         -->
+    <!-- ============================================== -->
+    <div id="module-arsenal" class="app-module">
+        <div class="module-content scrollable">
+            <h2 class="glow-text-red" style="text-align:center; font-size:1.5rem;">BAZA DANYCH ARSENAŁU</h2>
+            <p style="text-align:center; color:#888; font-size:0.8rem; margin-bottom:20px;">Wizualizacja historycznych i współczesnych ładunków.</p>
+            
+            <div class="dashboard-stats">
+                <div class="stat-box">WPISY: <span id="stat-count" class="glow-text">0</span></div>
+                <div class="stat-box">SUMA MOCY: <span id="stat-yield" class="glow-text-red">0</span> KT</div>
+                <div class="stat-box">KRAJE: <span id="stat-countries" class="glow-text">0</span></div>
+            </div>
+            
+            <div class="filters">
+                <select id="filter-category">
+                    <option value="all">WSZYSTKIE KATEGORIE</option>
+                    <option value="Tactical">ŁADUNKI TAKTYCZNE</option>
+                    <option value="Strategic">ŁADUNKI STRATEGICZNE</option>
+                    <option value="Milestones">KAMIENIE MILOWE</option>
+                </select>
+                <select id="filter-country">
+                    <option value="all">WSZYSTKIE KRAJE</option>
+                </select>
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-box">
+                    <div class="chart-title">OŚ CZASU VS MOC (SKALA LOGARYTMICZNA)</div>
+                    <div class="chart-container"><canvas id="timelineChart"></canvas></div>
+                </div>
+                <div class="chart-box">
+                    <div class="chart-title">ROZKŁAD WG KRAJÓW</div>
+                    <div class="chart-container"><canvas id="countryChart"></canvas></div>
+                </div>
+            </div>
+
+            <div id="weapons-grid" class="weapons-grid"></div>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODUŁ 5: KRAWĘDŹ ZAGŁADY                       -->
+    <!-- ============================================== -->
+    <div id="module-archive" class="app-module">
+        <div id="archive-container" class="module-content scrollable">
+            <!-- Dynamiczna zawartość z archive.js -->
+        </div>
+    </div>
+
     <!-- Nasze skrypty logiczne -->
+    <script src="db_arsenal.js"></script>
     <script type="module" src="app.js"></script>
     <script src="survival.js"></script>
     <script src="war_room.js"></script>
+    <script src="arsenal.js"></script>
+    <script src="archive.js"></script>
 
 </body>
 </html>

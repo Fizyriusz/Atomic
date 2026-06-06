@@ -75,6 +75,11 @@ window.switchModule = function(modId) {
     if(modId === 'war' && typeof initWarRoom === 'function') {
         initWarRoom(); // Inicjuje mapę z opóźnieniem by Leaflet pobrał rozmiar kontenera
     }
+    
+    // Przebudowa wykresów dla ukrytych kontenerów
+    if (modId === 'arsenal' && typeof updateArsenalApp === 'function') {
+        setTimeout(updateArsenalApp, 100);
+    }
 }
 
 // Funkcja globalna do dodawania wybuchu (wywoływana z survival.js i war_room.js)

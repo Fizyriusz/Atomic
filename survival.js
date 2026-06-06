@@ -3,7 +3,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const btnCheck = document.getElementById('btn-check-survival');
     const inputCity = document.getElementById('survival-city');
-    const selectBomb = document.getElementById('survival-bomb');
     const reportBox = document.getElementById('survival-report');
     const reportText = document.getElementById('survival-report-text');
     const btnShare = document.getElementById('btn-share-report');
@@ -37,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const locationName = data[0].display_name.split(',')[0];
 
             // 2. Symulacja uderzenia i wygenerowanie raportu
-            const kt = parseFloat(selectBomb.value);
+            const kt = activeSurvivalYield;
             generateReport(locationName, lat, lon, kt);
             
             // 3. Wysłanie danych do Globalnego Licznika (app.js)
@@ -124,4 +123,62 @@ document.addEventListener('DOMContentLoaded', () => {
         reportBox.style.display = 'block';
         btnShare.style.display = 'block';
     }
+
+    // --- Inicjalizacja kafelków uzbrojenia dla modułu przetrwania ---
+    let activeSurvivalYield = 350;
+    
+    function initSurvivalArsenalUI() {
+        const container = document.getElementById('survival-arsenal-container');
+        if (!container) return;
+        
+        const tabsContainer = document.createElement('div');
+        tabsContainer.className = 'arsenal-tab-container';
+        
+        const categories = ['Tactical', 'Strategic', 'Milestones'];
+        const labels = ['Taktyczne', 'Strategiczne', 'Giganty'];
+        let activeCat = 'Tactical';
+        
+        const itemsContainer = document.createElement('div');
+        
+        const renderItems = (cat) => {
+            itemsContainer.innerHTML = '';
+            const items = window.nuclearData.filter(d => d.category === cat).sort((a,b) => a.yield_kt - b.yield_kt);
+            items.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'arsenal-item';
+                if (activeSurvivalYield === item.yield_kt) el.classList.add('selected');
+                
+                el.innerHTML = `
+                    <div class="i-name">${item.name}</div>
+                    <div class="i-yield">${item.yield_kt.toLocaleString()} kT</div>
+                `;
+                el.onclick = () => {
+                    activeSurvivalYield = item.yield_kt;
+                    renderItems(activeCat);
+                };
+                itemsContainer.appendChild(el);
+            });
+        };
+
+        categories.forEach((cat, idx) => {
+            const tab = document.createElement('div');
+            tab.className = 'arsenal-tab';
+            if (cat === activeCat) tab.classList.add('active');
+            tab.innerText = labels[idx];
+            tab.onclick = () => {
+                activeCat = cat;
+                document.querySelectorAll('#survival-arsenal-container .arsenal-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                renderItems(activeCat);
+            };
+            tabsContainer.appendChild(tab);
+        });
+        
+        container.innerHTML = '';
+        container.appendChild(tabsContainer);
+        container.appendChild(itemsContainer);
+        renderItems(activeCat);
+    }
+
+    setTimeout(initSurvivalArsenalUI, 500);
 });

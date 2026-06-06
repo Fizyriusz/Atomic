@@ -14,7 +14,7 @@ let activeWarYield = 350; // Domyślna moc w KT
 // Stan interakcji kampanii
 let campaignDrawingMode = false;
 let campaignMarkingMode = false;
-let campaignPolylinePoints = [];
+let warRoomPolylinePoints = [];
 let campaignPolyline = null;
 let campaignLocateMarker = null;
 
@@ -155,7 +155,7 @@ window.setWarMode = function(mode) {
 
 window.setCampaignInteractionMode = function(mode) {
     clearCampaignLayers();
-    campaignPolylinePoints = [];
+    warRoomPolylinePoints = [];
     
     campaignMarkingMode = (mode === 'locate' || mode === 'defcon');
     campaignDrawingMode = (mode === 'draw_front');
@@ -184,7 +184,7 @@ function clearCampaignLayers() {
 
 window.clearCampaignDrawing = function() {
     clearCampaignLayers();
-    campaignPolylinePoints = [];
+    warRoomPolylinePoints = [];
     logWarMsg("WYCZYSZCZONO RYSUNEK FRONTU.");
     if (window.notifyCampaignAction) {
         window.notifyCampaignAction('draw_clear');
@@ -245,13 +245,13 @@ function handleMapClick(e) {
     }
     
     if (campaignDrawingMode) {
-        campaignPolylinePoints.push(latlng);
+        warRoomPolylinePoints.push(latlng);
         logWarMsg(`DODANO PUNKT FRONTU: [${latlng.lat.toFixed(2)}, ${latlng.lng.toFixed(2)}]`);
         
         if (campaignPolyline) {
-            campaignPolyline.setLatLngs(campaignPolylinePoints);
+            campaignPolyline.setLatLngs(warRoomPolylinePoints);
         } else {
-            campaignPolyline = L.polyline(campaignPolylinePoints, {
+            campaignPolyline = L.polyline(warRoomPolylinePoints, {
                 color: 'var(--red)',
                 weight: 4,
                 dashArray: '5, 5',
@@ -260,7 +260,7 @@ function handleMapClick(e) {
         }
         
         if (window.notifyCampaignAction) {
-            window.notifyCampaignAction('draw_click', campaignPolylinePoints);
+            window.notifyCampaignAction('draw_click', warRoomPolylinePoints);
         }
         return;
     }

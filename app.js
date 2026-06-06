@@ -38,6 +38,23 @@ document.addEventListener('DOMContentLoaded', () => {
         disclaimer.style.display = 'flex';
     });
 
+    // 1b. Obsługa Motywów (Theme System)
+    const themeSelector = document.getElementById('theme-selector');
+    if (themeSelector) {
+        const savedTheme = localStorage.getItem('atomic_theme') || 'stylized';
+        themeSelector.value = savedTheme;
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        
+        themeSelector.addEventListener('change', (e) => {
+            const newTheme = e.target.value;
+            localStorage.setItem('atomic_theme', newTheme);
+            document.documentElement.setAttribute('data-theme', newTheme);
+            if (typeof window.updateMapTheme === 'function') {
+                window.updateMapTheme(newTheme);
+            }
+        });
+    }
+
     // 2. Przełączanie Modułów
     const modBtns = document.querySelectorAll('.mod-btn');
     modBtns.forEach(btn => {

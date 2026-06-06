@@ -38,6 +38,11 @@
         <div style="font-weight: bold; color: var(--green); display: flex; align-items: center; gap: 15px;">
             <span>SYS: <span class="blink">ONLINE</span></span>
             <button id="btn-show-disclaimer" style="background: none; border: 1px dashed var(--border-color); color: var(--green); font-family: var(--font-main); font-size: 0.75rem; cursor: pointer; padding: 2px 8px; transition: 0.2s;">[ O PROJEKCIE ]</button>
+            <select id="theme-selector" style="background: rgba(0,0,0,0.8); color: var(--green); border: 1px solid var(--border-color); font-family: var(--font-main); font-size: 0.75rem; padding: 2px 5px; cursor: pointer; outline: none; transition: 0.2s;">
+                <option value="stylized">Motyw: Stylizowany</option>
+                <option value="dark">Motyw: Czarny</option>
+                <option value="light">Motyw: Biały</option>
+            </select>
         </div>
         <div id="doomsday-clock">
             <span>DEFCON 1 | ZDETONOWANO:</span>
@@ -158,6 +163,14 @@
             <div id="quest-tracker">
                 <div class="quest-title" id="quest-title">CELE OPERACYJNE</div>
                 <div id="quest-list"></div>
+                
+                <!-- KONTROLA INTERAKCJI KAMPANII -->
+                <div id="campaign-controls" style="margin-top:15px; border-top:1px dashed var(--border-color); padding-top:10px; display:none;">
+                    <div style="font-size:0.75rem; color:var(--dark-green); margin-bottom:5px; text-transform:uppercase; font-weight:bold;">Tryb interakcji:</div>
+                    <div id="campaign-interaction-buttons" style="display:flex; gap:5px; margin-bottom:10px;"></div>
+                    <div id="campaign-instructions" style="font-size:0.7rem; color:var(--green); line-height:1.4; font-style:italic; margin-bottom:10px;"></div>
+                </div>
+
                 <button class="btn-action" style="margin-top:10px; width:100%; font-size:0.8rem;" id="btn-submit-quest" onclick="submitQuest()">ZATWIERDŹ ROZKAZ</button>
                 <button class="btn-action" style="margin-top:5px; width:100%; border-color:#555; color:#aaa; font-size:0.8rem;" onclick="abortCampaign()">PRZERWIJ KAMPANIĘ</button>
             </div>
@@ -175,7 +188,7 @@
             
             <div style="display:grid; grid-template-columns: 1fr; gap: 20px;" id="missions-list">
                 <!-- Misja 1 -->
-                <div class="mission-card" style="border:1px solid #444; padding:20px; background:rgba(0,0,0,0.5); display:flex; flex-direction:column; justify-content:space-between; transition:0.3s;">
+                <div class="mission-card">
                     <div>
                         <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                             <span style="color:var(--green); font-weight:bold; font-size:1rem;">OPERACJA: CICHA WODA</span>
@@ -190,7 +203,7 @@
                 </div>
 
                 <!-- Misja 2 -->
-                <div class="mission-card" style="border:1px solid #444; padding:20px; background:rgba(0,0,0,0.5); display:flex; flex-direction:column; justify-content:space-between; transition:0.3s;">
+                <div class="mission-card">
                     <div>
                         <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                             <span style="color:var(--green); font-weight:bold; font-size:1rem;">OPERACJA: STEALTH SHIELD</span>
@@ -205,7 +218,7 @@
                 </div>
 
                 <!-- Misja 3 -->
-                <div class="mission-card" style="border:1px solid #444; padding:20px; background:rgba(0,0,0,0.5); display:flex; flex-direction:column; justify-content:space-between; transition:0.3s;">
+                <div class="mission-card">
                     <div>
                         <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                             <span style="color:var(--green); font-weight:bold; font-size:1rem;">OPERACJA: PRZEŁAMANIE TARCZ</span>
@@ -218,6 +231,7 @@
                     </div>
                     <button class="btn-action" style="padding:10px; font-size:0.85rem;" onclick="startMission('m3')">ROZPOCZNIJ OPERACJĘ</button>
                 </div>
+            </div>
             <!-- KAMPANIE FABULARNE -->
             <h2 class="glow-text-red" style="text-align:center; margin-top:40px; font-size:1.5rem;">KAMPANIE (TECHNO-THRILLER)</h2>
             <p style="text-align:center; font-size:0.8rem; color:#888; margin-bottom:20px;">Odegraj kluczowe momenty historii. System oceni Twoją precyzję geopolityczną.</p>

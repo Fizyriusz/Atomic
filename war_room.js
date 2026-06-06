@@ -11,6 +11,13 @@ let selectionMode = 'base'; // 'base' lub 'target'
 let activeCarrier = 'icbm';
 let activeWarYield = 350; // Domyślna moc w KT
 
+// Stan interakcji kampanii
+let campaignDrawingMode = false;
+let campaignMarkingMode = false;
+let campaignPolylinePoints = [];
+let campaignPolyline = null;
+let campaignLocateMarker = null;
+
 // Stan aktywnej misji
 let activeMissionId = null;
 let activeMissionBasesRemaining = 0;
@@ -34,7 +41,12 @@ window.initWarRoom = function() {
         }).setView([30, 0], 2);
 
         // Zapobiegamy dublowaniu kontynentów przez { noWrap: true }
-        darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        const savedTheme = localStorage.getItem('atomic_theme') || 'stylized';
+        const tileUrl = (savedTheme === 'light') 
+            ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+            : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+
+        darkLayer = L.tileLayer(tileUrl, {
             noWrap: true,
             bounds: bounds
         }).addTo(map);
@@ -51,6 +63,24 @@ window.initWarRoom = function() {
         
         logWarMsg("SYSTEM WDS INICJOWANY...");
     }, 100);
+}
+
+window.updateMapTheme = function(theme) {
+    if (!map) return;
+    
+    if (darkLayer) {
+        map.removeLayer(darkLayer);
+    }
+    
+    const bounds = L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180));
+    const tileUrl = (theme === 'light') 
+        ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+        
+    darkLayer = L.tileLayer(tileUrl, {
+        noWrap: true,
+        bounds: bounds
+    }).addTo(map);
 }
 
 // Funkcja budująca nowe kafelki wyboru broni
@@ -123,8 +153,117 @@ window.setWarMode = function(mode) {
     logWarMsg(`TRYB WYBORU: ${mode === 'base' ? 'START / TARCZA' : 'CEL ATAKU'}`);
 }
 
+window.setCampaignInteractionMode = function(mode) {
+    clearCampaignLayers();
+    campaignPolylinePoints = [];
+    
+    campaignMarkingMode = (mode === 'locate' || mode === 'defcon');
+    campaignDrawingMode = (mode === 'draw_front');
+    
+    const controls = document.getElementById('campaign-controls');
+    if (controls) {
+        if (mode) {
+            controls.style.display = 'block';
+            updateCampaignTrackerUI(mode);
+        } else {
+            controls.style.display = 'none';
+        }
+    }
+}
+
+function clearCampaignLayers() {
+    if (campaignPolyline) {
+        map.removeLayer(campaignPolyline);
+        campaignPolyline = null;
+    }
+    if (campaignLocateMarker) {
+        map.removeLayer(campaignLocateMarker);
+        campaignLocateMarker = null;
+    }
+}
+
+window.clearCampaignDrawing = function() {
+    clearCampaignLayers();
+    campaignPolylinePoints = [];
+    logWarMsg("WYCZYSZCZONO RYSUNEK FRONTU.");
+    if (window.notifyCampaignAction) {
+        window.notifyCampaignAction('draw_clear');
+    }
+}
+
+function updateCampaignTrackerUI(mode) {
+    const container = document.getElementById('campaign-interaction-buttons');
+    const instruction = document.getElementById('campaign-instructions');
+    if (!container || !instruction) return;
+    
+    container.innerHTML = '';
+    
+    if (mode === 'locate') {
+        container.innerHTML = `
+            <button class="btn-action" style="padding: 5px 10px; font-size: 0.75rem; background: var(--blue); color: black;" disabled>TRYB ZAZNACZANIA LOKACJI</button>
+        `;
+        instruction.innerText = "Kliknij na mapie, aby zaznaczyć wymaganą lokację operacyjną.";
+    } else if (mode === 'draw_front') {
+        container.innerHTML = `
+            <button class="btn-action" style="padding: 5px 10px; font-size: 0.75rem; background: var(--red); color: white;" disabled>TRYB RYSOWANIA FRONTU</button>
+            <button class="btn-action" style="padding: 5px 10px; font-size: 0.75rem; border-color: var(--border-color); color: var(--green);" onclick="window.clearCampaignDrawing()">WYCZYŚĆ</button>
+        `;
+        instruction.innerText = "Klikaj na mapie w kolejnych punktach, aby narysować linię frontu obrony.";
+    } else if (mode === 'defcon') {
+        container.innerHTML = `
+            <button class="btn-action" style="padding: 5px 10px; font-size: 0.75rem; background: var(--red); color: white;" disabled>TRYB ZMIANY ALERTU</button>
+        `;
+        instruction.innerText = "Zmień gotowość w panelu zagrożenia na wymagany DEFCON oraz wskaż punkt centrum na mapie.";
+    } else if (mode === 'deploy') {
+        container.innerHTML = `
+            <button class="btn-action" style="padding: 5px 10px; font-size: 0.75rem;" disabled>ROZMIESZCZENIE JEDNOSTEK</button>
+        `;
+        instruction.innerText = "Użyj panelu bocznego, aby wybrać nośnik (Silos/Okręt/B-2) i rozstaw go na mapie.";
+    }
+}
+
 function handleMapClick(e) {
     const latlng = e.latlng;
+    
+    // Kampania: Obsługa rysowania linii frontu i zaznaczania lokacji
+    if (campaignMarkingMode) {
+        if (campaignLocateMarker) {
+            map.removeLayer(campaignLocateMarker);
+        }
+        campaignLocateMarker = L.marker(latlng, {
+            icon: L.divIcon({
+                className: '',
+                html: '<div style="font-size:24px; text-shadow:0 0 10px var(--blue);">🎯</div>'
+            })
+        }).addTo(map);
+        
+        if (window.notifyCampaignAction) {
+            window.notifyCampaignAction('map_click', { lat: latlng.lat, lng: latlng.lng });
+        }
+        logWarMsg(`ZAZNACZONO LOKACJĘ: [${latlng.lat.toFixed(2)}, ${latlng.lng.toFixed(2)}]`);
+        return;
+    }
+    
+    if (campaignDrawingMode) {
+        campaignPolylinePoints.push(latlng);
+        logWarMsg(`DODANO PUNKT FRONTU: [${latlng.lat.toFixed(2)}, ${latlng.lng.toFixed(2)}]`);
+        
+        if (campaignPolyline) {
+            campaignPolyline.setLatLngs(campaignPolylinePoints);
+        } else {
+            campaignPolyline = L.polyline(campaignPolylinePoints, {
+                color: 'var(--red)',
+                weight: 4,
+                dashArray: '5, 5',
+                opacity: 0.8
+            }).addTo(map);
+        }
+        
+        if (window.notifyCampaignAction) {
+            window.notifyCampaignAction('draw_click', campaignPolylinePoints);
+        }
+        return;
+    }
     
     // Blokada w misjach
     if (activeMissionId) {

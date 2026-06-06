@@ -1,4 +1,4 @@
-:root {
+:root, :root[data-theme="stylized"] {
     --green: #00ff41;
     --dark-green: #008f11;
     --red: #ff2a2a;
@@ -8,6 +8,81 @@
     --panel-bg: rgba(5, 10, 5, 0.85);
     --border-color: rgba(0, 255, 65, 0.4);
     --font-main: 'Courier New', Courier, monospace;
+    --crt-display: block;
+    --text-shadow: 0 0 3px var(--green), 0 0 5px var(--green);
+    --text-shadow-red: 0 0 3px var(--red), 0 0 5px var(--red);
+    --btn-hover-bg: rgba(0, 255, 65, 0.1);
+    --btn-active-bg: rgba(0, 255, 65, 0.2);
+    --input-bg: rgba(0, 0, 0, 0.8);
+    --card-bg: rgba(0, 0, 0, 0.5);
+    --header-bg: rgba(0, 0, 0, 0.9);
+    --selector-bg: rgba(10, 10, 10, 0.9);
+    --selector-border: #333;
+    --sub-border: #333;
+    --action-btn-bg: rgba(0, 255, 65, 0.2);
+    --action-btn-hover-bg: var(--green);
+    --action-btn-hover-color: black;
+    --action-btn-shadow: 0 0 15px var(--green);
+    --action-btn-disabled-bg: #111;
+    --action-btn-disabled-border: #333;
+}
+
+:root[data-theme="dark"] {
+    --green: #e5e5e7;
+    --dark-green: #8e8e93;
+    --red: #ff3b30;
+    --dark-red: #c72c23;
+    --blue: #0a84ff;
+    --bg-color: #121212;
+    --panel-bg: #1c1c1e;
+    --border-color: #2c2c2e;
+    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --crt-display: none;
+    --text-shadow: none;
+    --text-shadow-red: none;
+    --btn-hover-bg: rgba(255, 255, 255, 0.05);
+    --btn-active-bg: rgba(255, 255, 255, 0.1);
+    --input-bg: #1e1e1e;
+    --card-bg: #1c1c1e;
+    --header-bg: #1c1c1e;
+    --selector-bg: #121212;
+    --selector-border: #2c2c2e;
+    --sub-border: #2c2c2e;
+    --action-btn-bg: rgba(255, 255, 255, 0.1);
+    --action-btn-hover-bg: var(--green);
+    --action-btn-hover-color: black;
+    --action-btn-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+    --action-btn-disabled-bg: #2c2c2e;
+    --action-btn-disabled-border: #3a3a3c;
+}
+
+:root[data-theme="light"] {
+    --green: #1c1c1e;
+    --dark-green: #8e8e93;
+    --red: #ff3b30;
+    --dark-red: #b71c1c;
+    --blue: #007aff;
+    --bg-color: #f5f5f7;
+    --panel-bg: #ffffff;
+    --border-color: #d1d1d6;
+    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --crt-display: none;
+    --text-shadow: none;
+    --text-shadow-red: none;
+    --btn-hover-bg: rgba(0, 0, 0, 0.05);
+    --btn-active-bg: rgba(0, 0, 0, 0.1);
+    --input-bg: #ffffff;
+    --card-bg: #ffffff;
+    --header-bg: #ffffff;
+    --selector-bg: #f5f5f7;
+    --selector-border: #e5e5ea;
+    --sub-border: #e5e5ea;
+    --action-btn-bg: rgba(0, 0, 0, 0.05);
+    --action-btn-hover-bg: var(--green);
+    --action-btn-hover-color: white;
+    --action-btn-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    --action-btn-disabled-bg: #e5e5ea;
+    --action-btn-disabled-border: #d1d1d6;
 }
 
 body {
@@ -22,8 +97,8 @@ body {
 
 /* CRT EFFECTS */
 body::before {
+    display: var(--crt-display);
     content: " ";
-    display: block;
     position: absolute;
     top: 0;
     left: 0;
@@ -40,8 +115,8 @@ body::before {
 }
 
 body::after {
+    display: var(--crt-display);
     content: " ";
-    display: block;
     position: absolute;
     top: 0;
     left: 0;
@@ -53,11 +128,11 @@ body::after {
 }
 
 .glow-text {
-    text-shadow: 0 0 3px var(--green), 0 0 5px var(--green); /* Zmniejszony glow dla lepszej czytelności */
+    text-shadow: var(--text-shadow);
 }
 .glow-text-red {
     color: var(--red);
-    text-shadow: 0 0 3px var(--red), 0 0 5px var(--red);
+    text-shadow: var(--text-shadow-red);
 }
 
 /* DISCLAIMER MODAL */
@@ -127,7 +202,7 @@ body::after {
     left: 0;
     width: 100%;
     height: 50px;
-    background: rgba(0, 0, 0, 0.9);
+    background: var(--header-bg);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
@@ -141,7 +216,7 @@ body::after {
     font-size: 1.2rem;
     font-weight: bold;
     color: var(--red);
-    text-shadow: 0 0 10px var(--red);
+    text-shadow: var(--text-shadow-red);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -164,9 +239,9 @@ body::after {
     left: 0;
     width: 100%;
     display: flex;
-    background: rgba(10, 10, 10, 0.9);
+    background: var(--selector-bg);
     z-index: 2000;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid var(--selector-border);
 }
 
 .mod-btn {
@@ -178,15 +253,15 @@ body::after {
     font-size: 0.9rem;
     letter-spacing: 1px;
     transition: 0.3s;
-    border-right: 1px solid #333;
-    color: #666;
+    border-right: 1px solid var(--sub-border);
+    color: var(--dark-green);
 }
 .mod-btn:last-child { border-right: none; }
-.mod-btn:hover { background: rgba(0, 255, 65, 0.1); color: var(--green); }
+.mod-btn:hover { background: var(--btn-hover-bg); color: var(--green); }
 .mod-btn.active {
-    background: rgba(0, 255, 65, 0.2);
+    background: var(--btn-active-bg);
     color: var(--green);
-    text-shadow: 0 0 8px var(--green);
+    text-shadow: var(--text-shadow);
     border-bottom: 2px solid var(--green);
 }
 
@@ -224,8 +299,8 @@ body::after {
 .input-group input, .input-group select {
     width: 100%;
     padding: 12px;
-    background: rgba(0,0,0,0.8);
-    border: 1px solid var(--green);
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
     color: var(--green);
     font-family: var(--font-main);
     font-size: 1rem;
@@ -233,14 +308,14 @@ body::after {
     outline: none;
 }
 .input-group input:focus, .input-group select:focus {
-    box-shadow: 0 0 10px rgba(0,255,65,0.5);
+    box-shadow: 0 0 10px var(--border-color);
 }
 
 .btn-action {
     width: 100%;
     padding: 15px;
-    background: rgba(0, 255, 65, 0.2);
-    border: 1px solid var(--green);
+    background: var(--action-btn-bg);
+    border: 1px solid var(--border-color);
     color: var(--green);
     font-family: var(--font-main);
     font-size: 1.1rem;
@@ -249,8 +324,8 @@ body::after {
     text-transform: uppercase;
     transition: 0.3s;
 }
-.btn-action:hover { background: var(--green); color: black; box-shadow: 0 0 15px var(--green); }
-.btn-action:disabled { background: #111; border-color: #333; color: #555; cursor: not-allowed; box-shadow: none; }
+.btn-action:hover { background: var(--action-btn-hover-bg); color: var(--action-btn-hover-color); box-shadow: var(--action-btn-shadow); }
+.btn-action:disabled { background: var(--action-btn-disabled-bg); border-color: var(--action-btn-disabled-border); color: var(--dark-green); cursor: not-allowed; box-shadow: none; }
 
 #survival-report {
     margin-top: 20px;
@@ -325,10 +400,19 @@ body::after {
 ::-webkit-scrollbar-thumb { background: #333; border: 1px solid var(--green); }
 
 /* MISSIONS */
+.mission-card {
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    background: var(--card-bg);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: 0.3s;
+}
 .mission-card:hover {
     border-color: var(--blue) !important;
-    box-shadow: 0 0 15px rgba(0, 204, 255, 0.2);
-    background: rgba(0, 204, 255, 0.05) !important;
+    box-shadow: 0 0 15px var(--blue);
+    background: var(--btn-hover-bg) !important;
 }
 
 /* ---------------------------------------------------- */
@@ -572,9 +656,9 @@ body::after {
 /* FAZA 6: KAMPANIE I CZYTELNOŚĆ                        */
 /* ---------------------------------------------------- */
 .campaign-card {
-    border: 1px solid #444; 
+    border: 1px solid var(--border-color); 
     padding: 20px; 
-    background: rgba(0,0,0,0.7); 
+    background: var(--card-bg); 
     display: flex; 
     flex-direction: column; 
     justify-content: space-between; 
@@ -582,7 +666,7 @@ body::after {
 }
 .campaign-card:hover {
     border-color: var(--green);
-    box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+    box-shadow: 0 0 15px var(--green);
 }
 
 /* TELEWIZOR CRT DLA NARRACJI */
